@@ -1,0 +1,11 @@
+# Bicep generated ARM templates
+*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+.idea/
