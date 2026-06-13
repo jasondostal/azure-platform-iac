@@ -6,19 +6,27 @@
 #
 # Parameters:
 #   workDir: where to run scans (default: $(Build.SourcesDirectory))
+#   dotnet:  include .NET-specific gates (dotnet format, NuGet vuln). Set false
+#            for python/go/node archetypes so they don't run no-op .NET steps.
+#
+# Language-agnostic gates (gitleaks, Semgrep, Trivy) always run.
 # ──────────────────────────────────────────────────────────────────────────────
 parameters:
   - name: workDir
     type: string
     default: $(Build.SourcesDirectory)
+  - name: dotnet
+    type: boolean
+    default: true
 
 steps:
-  # ── Format / Lint ──────────────────────────────────────────────────────────
-  - script: dotnet format --verify-no-changes --verbosity diagnostic
-    displayName: 'Lint: dotnet format'
-    condition: succeededOrFailed()
-    continueOnError: true
-    workingDirectory: ${{ parameters.workDir }}
+  # ── Format / Lint (.NET) ─────────────────────────────────────────────────────
+  - ${{ if eq(parameters.dotnet, true) }}:
+    - script: dotnet format --verify-no-changes --verbosity diagnostic
+      displayName: 'Lint: dotnet format'
+      condition: succeededOrFailed()
+      continueOnError: true
+      workingDirectory: ${{ parameters.workDir }}
 
   # ── Secret Detection ───────────────────────────────────────────────────────
   - script: |
@@ -29,12 +37,13 @@ steps:
     continueOnError: false
     workingDirectory: ${{ parameters.workDir }}
 
-  # ── Dependency Scan (NuGet) ────────────────────────────────────────────────
-  - script: dotnet list package --vulnerable --include-transitive 2>/dev/null || true
-    displayName: 'Security: NuGet vulnerability scan'
-    condition: succeededOrFailed()
-    continueOnError: true
-    workingDirectory: ${{ parameters.workDir }}
+  # ── Dependency Scan (NuGet, .NET) ────────────────────────────────────────────
+  - ${{ if eq(parameters.dotnet, true) }}:
+    - script: dotnet list package --vulnerable --include-transitive 2>/dev/null || true
+      displayName: 'Security: NuGet vulnerability scan'
+      condition: succeededOrFailed()
+      continueOnError: true
+      workingDirectory: ${{ parameters.workDir }}
 
   # ── SAST (Semgrep) ─────────────────────────────────────────────────────────
   - script: |
