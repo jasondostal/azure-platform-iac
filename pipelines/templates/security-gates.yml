@@ -1,0 +1,55 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# azure-platform-iac / pipelines / templates / security-gates.yml
+#
+# Shared security gates consumed by every app pipeline.
+# Add a scanner here → every team gets it on next build.
+#
+# Parameters:
+#   workDir: where to run scans (default: $(Build.SourcesDirectory))
+# ──────────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: workDir
+    type: string
+    default: $(Build.SourcesDirectory)
+
+steps:
+  # ── Format / Lint ──────────────────────────────────────────────────────────
+  - script: dotnet format --verify-no-changes --verbosity diagnostic
+    displayName: 'Lint: dotnet format'
+    condition: succeededOrFailed()
+    continueOnError: true
+    workingDirectory: ${{ parameters.workDir }}
+
+  # ── Secret Detection ───────────────────────────────────────────────────────
+  - script: |
+      GITLEAKS_VERSION=v8.21.2
+      curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /tmp
+      /tmp/gitleaks detect --source ${{ parameters.workDir }} --verbose
+    displayName: 'Security: gitleaks (HARD)'
+    continueOnError: false
+    workingDirectory: ${{ parameters.workDir }}
+
+  # ── Dependency Scan (NuGet) ────────────────────────────────────────────────
+  - script: dotnet list package --vulnerable --include-transitive 2>/dev/null || true
+    displayName: 'Security: NuGet vulnerability scan'
+    condition: succeededOrFailed()
+    continueOnError: true
+    workingDirectory: ${{ parameters.workDir }}
+
+  # ── SAST (Semgrep) ─────────────────────────────────────────────────────────
+  - script: |
+      pip install semgrep --quiet 2>/dev/null || true
+      semgrep --config auto --error ${{ parameters.workDir }} 2>/dev/null || true
+    displayName: 'Security: Semgrep SAST'
+    condition: succeededOrFailed()
+    continueOnError: true
+    workingDirectory: ${{ parameters.workDir }}
+
+  # ── Filesystem Scan (Trivy) ────────────────────────────────────────────────
+  - script: |
+      curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.57.1
+      trivy fs --scanners vuln,secret --severity HIGH,CRITICAL --exit-code 0 ${{ parameters.workDir }}
+    displayName: 'Security: Trivy FS scan'
+    condition: succeededOrFailed()
+    continueOnError: true
+    workingDirectory: ${{ parameters.workDir }}

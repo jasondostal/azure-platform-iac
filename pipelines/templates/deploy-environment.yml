@@ -1,0 +1,93 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# azure-platform-iac / pipelines / templates / deploy-environment.yml
+#
+# Deploy an app + infra to a single environment.
+# Called once per environment from the app pipeline.
+#
+# Parameters:
+#   environment:        dev | qa | staging | prod
+#   serviceConnection:  Azure RM service connection name
+#   appName:            App Service name
+#   targetType:         web | function | container
+#   artifactName:       name of the build artifact to deploy
+#   infraTemplate:      path to the Bicep main template
+#   infraParams:        path to the .bicepparam file for this environment
+#   deployInfra:        whether to deploy infrastructure (default: true)
+# ──────────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: environment
+    type: string
+    values:
+      - dev
+      - qa
+      - staging
+      - prod
+  - name: serviceConnection
+    type: string
+  - name: appName
+    type: string
+  - name: targetType
+    type: string
+    default: 'web'
+    values:
+      - web
+      - function
+      - container
+  - name: artifactName
+    type: string
+    default: 'drop'
+  - name: infraTemplate
+    type: string
+    default: 'infra/main.bicep'
+  - name: infraParams
+    type: string
+  - name: deployInfra
+    type: boolean
+    default: false
+
+jobs:
+  - deployment: Deploy${{ parameters.environment }}
+    displayName: 'Deploy to ${{ upper(parameters.environment) }}'
+    environment: '${{ parameters.environment }}'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            # ── Deploy Infrastructure (Bicep) ───────────────────────────────
+            - ${{ if eq(parameters.deployInfra, true) }}:
+              - task: AzureCLI@2
+                displayName: 'Deploy Bicep infra (${{ parameters.environment }})'
+                inputs:
+                  azureSubscription: '${{ parameters.serviceConnection }}'
+                  scriptType: 'bash'
+                  scriptLocation: 'inlineScript'
+                  inlineScript: |
+                    az deployment sub create \
+                      --location eastus \
+                      --template-file ${{ parameters.infraTemplate }} \
+                      --parameters ${{ parameters.infraParams }}
+
+            # ── Deploy App ──────────────────────────────────────────────────
+            - ${{ if eq(parameters.targetType, 'web') }}:
+              - task: AzureWebApp@1
+                displayName: 'Deploy to App Service'
+                inputs:
+                  azureSubscription: '${{ parameters.serviceConnection }}'
+                  appName: '${{ parameters.appName }}'
+                  package: '$(Pipeline.Workspace)/${{ parameters.artifactName }}/**/*.zip'
+
+            - ${{ if eq(parameters.targetType, 'function') }}:
+              - task: AzureFunctionApp@1
+                displayName: 'Deploy to Function App'
+                inputs:
+                  azureSubscription: '${{ parameters.serviceConnection }}'
+                  appName: '${{ parameters.appName }}'
+                  package: '$(Pipeline.Workspace)/${{ parameters.artifactName }}/**/*.zip'
+
+            - ${{ if eq(parameters.targetType, 'container') }}:
+              - task: AzureWebAppContainer@1
+                displayName: 'Deploy container to App Service'
+                inputs:
+                  azureSubscription: '${{ parameters.serviceConnection }}'
+                  appName: '${{ parameters.appName }}'
+                  containers: '${{ parameters.appName }}:$(Build.BuildId)'

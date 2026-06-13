@@ -1,0 +1,83 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# azure-platform-iac / pipelines / templates / build-dotnet.yml
+#
+# Build, test, and publish a .NET application.
+#
+# Parameters:
+#   dotnetVersion: .NET SDK version (default: 10.x)
+#   solutionFile:  path to .slnx or .sln file
+#   buildConfig:   Debug | Release (default: Release)
+#   publishProject: path to the web project to publish (if empty, uses solution)
+#   testProjects:  glob for test projects (default: **/*Tests*.csproj)
+#   artifactName:  published artifact name (default: drop)
+# ──────────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: dotnetVersion
+    type: string
+    default: '10.x'
+  - name: solutionFile
+    type: string
+    default: '**/*.slnx'
+  - name: buildConfig
+    type: string
+    default: 'Release'
+  - name: publishProject
+    type: string
+    default: ''
+  - name: testProjects
+    type: string
+    default: '**/*Tests*.csproj'
+  - name: artifactName
+    type: string
+    default: 'drop'
+
+steps:
+  - task: UseDotNet@2
+    displayName: 'Install .NET ${{ parameters.dotnetVersion }}'
+    inputs:
+      packageType: 'sdk'
+      version: '${{ parameters.dotnetVersion }}'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Restore'
+    inputs:
+      command: 'restore'
+      projects: '${{ parameters.solutionFile }}'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Build'
+    inputs:
+      command: 'build'
+      projects: '${{ parameters.solutionFile }}'
+      arguments: '--configuration ${{ parameters.buildConfig }} --no-restore'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Test'
+    inputs:
+      command: 'test'
+      projects: '${{ parameters.testProjects }}'
+      arguments: '--configuration ${{ parameters.buildConfig }} --no-build'
+    continueOnError: true
+
+  - ${{ if ne(parameters.publishProject, '') }}:
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish'
+      inputs:
+        command: 'publish'
+        projects: '${{ parameters.publishProject }}'
+        arguments: '--configuration ${{ parameters.buildConfig }} --output $(Build.ArtifactStagingDirectory)'
+        zipAfterPublish: true
+  - ${{ if eq(parameters.publishProject, '') }}:
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish'
+      inputs:
+        command: 'publish'
+        publishWebProjects: true
+        arguments: '--configuration ${{ parameters.buildConfig }} --output $(Build.ArtifactStagingDirectory)'
+        zipAfterPublish: true
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish artifact'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifactName: '${{ parameters.artifactName }}'

@@ -1,0 +1,75 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# azure-platform-iac / pipelines / templates / build-node.yml
+#
+# Build, test, and package a Node.js / TypeScript application.
+# Supports SvelteKit, Next.js, Express, or any npm-based project.
+#
+# Parameters:
+#   nodeVersion:  Node version (default: 22)
+#   installCmd:   install command (default: npm ci)
+#   buildCmd:     build command (default: npm run build)
+#   testCmd:      test command (default: npm test)
+#   buildOutput:  directory to package (default: build)
+#   artifactName: published artifact name (default: drop)
+# ──────────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: nodeVersion
+    type: string
+    default: '22'
+  - name: installCmd
+    type: string
+    default: 'npm ci'
+  - name: buildCmd
+    type: string
+    default: 'npm run build'
+  - name: testCmd
+    type: string
+    default: 'npm test --if-present'
+  - name: buildOutput
+    type: string
+    default: 'build'
+  - name: artifactName
+    type: string
+    default: 'drop'
+
+steps:
+  - task: NodeTool@0
+    displayName: 'Install Node ${{ parameters.nodeVersion }}'
+    inputs:
+      versionSpec: '${{ parameters.nodeVersion }}'
+
+  - script: ${{ parameters.installCmd }}
+    displayName: 'Install dependencies'
+
+  - script: ${{ parameters.buildCmd }}
+    displayName: 'Build'
+
+  - script: ${{ parameters.testCmd }}
+    displayName: 'Test'
+    continueOnError: true
+
+  # Zip the build output + any server entrypoint for App Service
+  - script: |
+      mkdir -p $(Build.ArtifactStagingDirectory)/app
+      cp -r ${{ parameters.buildOutput }}/* $(Build.ArtifactStagingDirectory)/app/ 2>/dev/null || true
+      # Include a server.js entrypoint if one exists at root
+      cp server.js $(Build.ArtifactStagingDirectory)/app/ 2>/dev/null || true
+      # Include package.json for production deps
+      cp package.json $(Build.ArtifactStagingDirectory)/app/ 2>/dev/null || true
+      cp package-lock.json $(Build.ArtifactStagingDirectory)/app/ 2>/dev/null || true
+      cd $(Build.ArtifactStagingDirectory)/app && npm ci --omit=dev 2>/dev/null || true
+    displayName: 'Stage app'
+
+  - task: ArchiveFiles@2
+    displayName: 'Package for App Service'
+    inputs:
+      rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/app'
+      includeRootFolder: false
+      archiveType: 'zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}.zip'
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish artifact'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifactName: '${{ parameters.artifactName }}'

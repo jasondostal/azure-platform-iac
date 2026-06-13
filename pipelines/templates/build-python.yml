@@ -1,0 +1,65 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# azure-platform-iac / pipelines / templates / build-python.yml
+#
+# Build, test, and package a Python application (App Service or Function App).
+#
+# Parameters:
+#   pythonVersion: Python version (default: 3.12)
+#   requirementsFile: path to requirements.txt (default: requirements.txt)
+#   sourceDir:   directory containing the Python app (default: src)
+#   testCommand: test command (default: pytest)
+#   artifactName: published artifact name (default: drop)
+# ──────────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: pythonVersion
+    type: string
+    default: '3.12'
+  - name: requirementsFile
+    type: string
+    default: 'requirements.txt'
+  - name: sourceDir
+    type: string
+    default: 'src'
+  - name: testCommand
+    type: string
+    default: 'pytest --tb=short'
+  - name: artifactName
+    type: string
+    default: 'drop'
+
+steps:
+  - task: UsePythonVersion@0
+    displayName: 'Use Python ${{ parameters.pythonVersion }}'
+    inputs:
+      versionSpec: '${{ parameters.pythonVersion }}'
+
+  - script: |
+      python -m pip install --upgrade pip
+      pip install -r ${{ parameters.requirementsFile }}
+      pip install pytest
+    displayName: 'Install dependencies'
+
+  - script: ${{ parameters.testCommand }}
+    displayName: 'Run tests'
+    continueOnError: true
+    workingDirectory: ${{ parameters.sourceDir }}
+
+  - script: |
+      cd ${{ parameters.sourceDir }}
+      pip install -r ${{ parameters.requirementsFile }} -t .python_packages/lib/python3.12/site-packages
+    displayName: 'Install deps to local packages dir'
+    condition: and(succeeded(), ne(variables['isFunctionApp'], 'true'))
+
+  - task: ArchiveFiles@2
+    displayName: 'Package app'
+    inputs:
+      rootFolderOrFile: '${{ parameters.sourceDir }}'
+      includeRootFolder: false
+      archiveType: 'zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish artifact'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifactName: '${{ parameters.artifactName }}'

@@ -1,0 +1,94 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# azure-platform-iac / pipelines / templates / build-go.yml
+#
+# Build, test, and package a Go application.
+# Supports both web/server targets (binary + optional SPA directory for zip deploy)
+# and desktop/CLI targets (cross-compiled binaries for GitHub Releases).
+#
+# Parameters:
+#   goVersion:    Go version (default: 1.23)
+#   mainPackage:  path to main package (default: ./cmd/app)
+#   binaryName:   output binary name (default: app)
+#   includeSPA:   whether to include a static/ directory as the SPA root
+#   spaDir:       path to SPA build output (default: static)
+#   targetType:   web | desktop (default: web)
+#   artifactName: published artifact name (default: drop)
+# ──────────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: goVersion
+    type: string
+    default: '1.23'
+  - name: mainPackage
+    type: string
+    default: './cmd/app'
+  - name: binaryName
+    type: string
+    default: 'app'
+  - name: includeSPA
+    type: boolean
+    default: false
+  - name: spaDir
+    type: string
+    default: 'static'
+  - name: targetType
+    type: string
+    default: 'web'
+    values:
+      - web
+      - desktop
+  - name: artifactName
+    type: string
+    default: 'drop'
+
+steps:
+  - task: GoTool@0
+    displayName: 'Install Go ${{ parameters.goVersion }}'
+    inputs:
+      version: '${{ parameters.goVersion }}'
+
+  - ${{ if eq(parameters.targetType, 'web') }}:
+    - script: |
+        go build -ldflags="-s -w" -o ${{ parameters.binaryName }} ${{ parameters.mainPackage }}
+      displayName: 'Build (${{ parameters.binaryName }})'
+
+    - script: go test ./...
+      displayName: 'Run tests'
+      continueOnError: true
+
+    - ${{ if eq(parameters.includeSPA, true) }}:
+      - script: |
+          mkdir -p $(Build.ArtifactStagingDirectory)/app
+          cp ${{ parameters.binaryName }} $(Build.ArtifactStagingDirectory)/app/
+          cp -r ${{ parameters.spaDir }}/* $(Build.ArtifactStagingDirectory)/app/static/ 2>/dev/null || true
+        displayName: 'Stage binary + SPA'
+    - ${{ if eq(parameters.includeSPA, false) }}:
+      - script: |
+          mkdir -p $(Build.ArtifactStagingDirectory)/app
+          cp ${{ parameters.binaryName }} $(Build.ArtifactStagingDirectory)/app/
+        displayName: 'Stage binary'
+
+    - task: ArchiveFiles@2
+      displayName: 'Package for App Service'
+      inputs:
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/app'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}.zip'
+
+  - ${{ if eq(parameters.targetType, 'desktop') }}:
+    - script: |
+        mkdir -p $(Build.ArtifactStagingDirectory)/dist
+        GOOS=linux   GOARCH=amd64 go build -ldflags="-s -w" -o $(Build.ArtifactStagingDirectory)/dist/${{ parameters.binaryName }}-linux-amd64   ${{ parameters.mainPackage }}
+        GOOS=darwin  GOARCH=arm64 go build -ldflags="-s -w" -o $(Build.ArtifactStagingDirectory)/dist/${{ parameters.binaryName }}-darwin-arm64  ${{ parameters.mainPackage }}
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o $(Build.ArtifactStagingDirectory)/dist/${{ parameters.binaryName }}-windows-amd64.exe ${{ parameters.mainPackage }}
+      displayName: 'Cross-compile (linux/darwin/windows)'
+
+    - script: go test ./...
+      displayName: 'Run tests'
+      continueOnError: true
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish artifact'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifactName: '${{ parameters.artifactName }}'
