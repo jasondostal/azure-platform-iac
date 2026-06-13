@@ -41,7 +41,7 @@ resource pe 'Microsoft.Network/privateEndpoints@2024-03-01' = {
       }
     }]
   }
-  tags: { environment: environment }
+  tags: { environment: environment, managedBy: 'azure-platform-iac' }
 }
 
 resource dnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-03-01' = if (!empty(privateDnsZoneId)) {

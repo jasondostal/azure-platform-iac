@@ -19,14 +19,8 @@ param location string
 @description('Parent Hub resource ID')
 param hubId string
 
-@description('AI Services account resource ID (for billing + quota)')
-param aiServicesId string
-
 @description('Storage account resource ID for project data')
 param storageAccountId string = ''
-
-@description('AI Search service resource ID for vector search (RAG at scale)')
-param aiSearchServiceId string = ''
 
 @description('Whether to enable public network access')
 param publicNetworkAccess bool = true

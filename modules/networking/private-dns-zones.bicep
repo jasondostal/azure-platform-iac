@@ -30,7 +30,7 @@ resource zonesResource 'Microsoft.Network/privateDnsZones@2024-06-01' = [for zon
   name: zone
   location: 'global'
   properties: {}
-  tags: { environment: environment }
+  tags: { environment: environment, managedBy: 'azure-platform-iac' }
 }]
 
 resource links 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = [for (zone, i) in zones: {

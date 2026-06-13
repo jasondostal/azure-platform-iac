@@ -43,7 +43,7 @@ param environment string
 @description('Additional tags')
 param tags object = {}
 
-resource st 'Microsoft.Storage/storageAccounts@2023-04-01' = {
+resource st 'Microsoft.Storage/storageAccounts@2024-01-01' = {
   name: name
   location: location
   kind: 'StorageV2'
@@ -66,7 +66,7 @@ resource st 'Microsoft.Storage/storageAccounts@2023-04-01' = {
 }
 
 // Blob service properties (soft-delete + versioning)
-resource blob 'Microsoft.Storage/storageAccounts/blobServices@2023-04-01' = {
+resource blob 'Microsoft.Storage/storageAccounts/blobServices@2024-01-01' = {
   parent: st
   name: 'default'
   properties: {
@@ -77,17 +77,17 @@ resource blob 'Microsoft.Storage/storageAccounts/blobServices@2023-04-01' = {
 }
 
 // Required parents for other services
-resource file 'Microsoft.Storage/storageAccounts/fileServices@2023-04-01' = {
+resource file 'Microsoft.Storage/storageAccounts/fileServices@2024-01-01' = {
   parent: st
   name: 'default'
 }
 
-resource table 'Microsoft.Storage/storageAccounts/tableServices@2023-04-01' = {
+resource table 'Microsoft.Storage/storageAccounts/tableServices@2024-01-01' = {
   parent: st
   name: 'default'
 }
 
-resource queue 'Microsoft.Storage/storageAccounts/queueServices@2023-04-01' = {
+resource queue 'Microsoft.Storage/storageAccounts/queueServices@2024-01-01' = {
   parent: st
   name: 'default'
 }

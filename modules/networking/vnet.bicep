@@ -30,7 +30,7 @@ var defaultSubnets = [
 
 var allSubnets = empty(subnets) ? defaultSubnets : subnets
 
-resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
+resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
   name: name
   location: location
   properties: {

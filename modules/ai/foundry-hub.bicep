@@ -100,14 +100,14 @@ resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-
   parent: aiServices
   name: model.name
   sku: {
-    name: contains(model, 'skuName') ? model.skuName : 'GlobalStandard'
-    capacity: contains(model, 'skuCapacity') ? model.skuCapacity : 10
+    name: model.?skuName ?? 'GlobalStandard'
+    capacity: model.?skuCapacity ?? 10
   }
   properties: {
     model: {
       format: model.modelFormat
       name: model.modelName
-      version: contains(model, 'modelVersion') ? model.modelVersion : '1'
+      version: model.?modelVersion ?? '1'
     }
   }
 }]

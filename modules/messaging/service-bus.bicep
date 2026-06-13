@@ -23,8 +23,8 @@ param disablePublicAccess bool = false
 @description('Minimum TLS version')
 param minTlsVersion string = '1.2'
 
-@description('Whether to enable local auth (access keys). Disable for Entra-only.')
-param disableLocalAuth bool = false
+@description('Whether to disable local auth (access keys) — Entra-only by default. Set false if a consumer needs SAS connection strings.')
+param disableLocalAuth bool = true
 
 @description('Environment tag')
 param environment string

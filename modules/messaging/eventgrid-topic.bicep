@@ -25,12 +25,13 @@ param environment string
 @description('Additional tags')
 param tags object = {}
 
-resource topic 'Microsoft.EventGrid/topics@2021-12-01' = {
+resource topic 'Microsoft.EventGrid/topics@2024-06-01-preview' = {
   name: name
   location: location
   properties: {
     inputSchema: inputSchema
     publicNetworkAccess: enablePublicAccess ? 'Enabled' : 'Disabled'
+    minimumTlsVersionAllowed: '1.2'
   }
   tags: union(tags, {
     environment: environment
