@@ -22,8 +22,8 @@ param storageAccountName string
 @allowed(['dotnet-isolated', 'node', 'python', 'java', 'powershell', 'custom'])
 param runtimeStack string = 'dotnet-isolated'
 
-@description('Runtime version (e.g., 9.0 for dotnet-isolated, 20 for node, 3.12 for python)')
-param runtimeVersion string = '9.0'
+@description('Runtime version (e.g., 10.0 for dotnet-isolated, 20 for node, 3.12 for python)')
+param runtimeVersion string = '10.0'
 
 @description('Whether to enable always-on (prod). Not billable on consumption.')
 param alwaysOn bool = false

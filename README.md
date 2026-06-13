@@ -33,7 +33,7 @@ azure-platform-iac/              ← PLATFORM REPO (this one)
 │   ├── build-go.yml             → Go build + cross-compile (web or desktop)
 │   ├── build-node.yml           → Node/TS build + test + package
 │   ├── security-gates.yml       → gitleaks, trivy, semgrep, NuGet scan
-│   └── deploy-environment.yml   → deploy app + infra to one environment
+│   └── deploy-environment.yml   → branch-gated stage: deploy app (+ optional infra)
 │
 azure-iac-reference/             ← APP REPO (web app)
 │   infra/main.bicep              → consumes platform modules
@@ -86,7 +86,7 @@ azure-project-starter/           ← COOKIECUTTER TEMPLATE
 | `pipelines/templates/build-go.yml` | Go build with cross-compile (web or desktop) |
 | `pipelines/templates/build-node.yml` | Node.js / TypeScript build, test, package |
 | `pipelines/templates/security-gates.yml` | Shared scanners — gitleaks, trivy, semgrep, NuGet vuln |
-| `pipelines/templates/deploy-environment.yml` | Deploy app + Bicep infra to one environment |
+| `pipelines/templates/deploy-environment.yml` | Emits a branch-gated **stage** that deploys the app (and optionally Bicep infra) to one environment |
 
 **Add a scanner here → every team gets it on next build.** No repo-by-repo patching.
 
