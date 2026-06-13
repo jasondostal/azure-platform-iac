@@ -14,7 +14,13 @@
 // applies a global API policy that chains auth validation.
 //
 // NOTE: This module creates API-level resources, not the APIM instance itself.
-//       Use apim.bicep for the service, then this module for API definitions.
+//       Use api-management.bicep for the service, then this module for APIs.
+//
+// NOTE: Bicep multi-line strings ('''...''') are RAW — they do NOT interpolate
+//       ${...}. The policy + auth fragments below therefore use __TOKEN__
+//       placeholders and replace() to splice in values. Interpolating directly
+//       inside ''' emitted literal "${x}" text into the policy XML, so the
+//       validate-jwt blocks never actually applied.
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── APIM instance reference ────────────────────────────────────────────────
@@ -103,8 +109,6 @@ param rateLimitPeriod int = 60
 
 // ── API ────────────────────────────────────────────────────────────────────
 
-// Build version suffix for the resource name
-var versionSuffix = !empty(apiVersion) ? '-${apiVersion}' : ''
 var apiResourceName = apiName
 
 // Determine API type: openapi-link for URL imports, http for manual
@@ -132,94 +136,89 @@ resource apiDef 'Microsoft.ApiManagement/service/apis@2023-12-01' = {
   }
 }
 
-// ── Auth: build JWT validation fragments ────────────────────────────────────
+// ── Auth: build JWT validation fragments (token templates + replace) ─────────
+
+var additionalIssuerLines = [for issuer in additionalIssuers: '        <issuer>${issuer}</issuer>']
 
 // Internal Entra — validate employee tokens
-var entraJwtFragment = enableEntraAuth && !empty(entraTenantId) && !empty(entraAudience) ? '''
+var entraJwtRaw = '''
     <!-- Internal employee auth (Entra ID) -->
-    <validate-jwt header-name="Authorization"
-                  failed-validation-httpcode="401"
-                  failed-validation-error-message="Unauthorized — valid Entra ID token required">
-      <openid-config url="https://login.microsoftonline.com/${entraTenantId}/v2.0/.well-known/openid-configuration" />
+    <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized - valid Entra ID token required">
+      <openid-config url="https://login.microsoftonline.com/__ENTRA_TENANT__/v2.0/.well-known/openid-configuration" />
       <audiences>
-        <audience>${entraAudience}</audience>
-        <audience>api://${entraAudience}</audience>
+        <audience>__ENTRA_AUD__</audience>
+        <audience>api://__ENTRA_AUD__</audience>
       </audiences>
       <issuers>
-        <issuer>https://login.microsoftonline.com/${entraTenantId}/v2.0</issuer>
-        <issuer>https://sts.windows.net/${entraTenantId}/</issuer>
+        <issuer>https://login.microsoftonline.com/__ENTRA_TENANT__/v2.0</issuer>
+        <issuer>https://sts.windows.net/__ENTRA_TENANT__/</issuer>
+__ENTRA_EXTRA_ISSUERS__
       </issuers>
       <required-claims>
         <claim name="appid" match="any">
-          <value>${entraAudience}</value>
+          <value>__ENTRA_AUD__</value>
         </claim>
       </required-claims>
     </validate-jwt>
-''' : ''
+'''
+var entraJwtFragment = enableEntraAuth && !empty(entraTenantId) && !empty(entraAudience)
+  ? replace(replace(replace(entraJwtRaw, '__ENTRA_TENANT__', entraTenantId), '__ENTRA_AUD__', entraAudience), '__ENTRA_EXTRA_ISSUERS__', join(additionalIssuerLines, '\n'))
+  : ''
 
 // B2C — validate external user tokens
-var b2cJwtFragment = enableB2CAuth && !empty(b2cTenantName) && !empty(b2cSignInPolicy) && !empty(b2cAudience) ? '''
+var b2cJwtRaw = '''
     <!-- External partner/customer auth (Azure AD B2C) -->
-    <validate-jwt header-name="Authorization"
-                  failed-validation-httpcode="401"
-                  failed-validation-error-message="Unauthorized — valid B2C token required">
-      <openid-config url="https://${b2cTenantName}.b2clogin.com/${b2cTenantName}.onmicrosoft.com/${b2cSignInPolicy}/v2.0/.well-known/openid-configuration" />
+    <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized - valid B2C token required">
+      <openid-config url="https://__B2C_TENANT__.b2clogin.com/__B2C_TENANT__.onmicrosoft.com/__B2C_POLICY__/v2.0/.well-known/openid-configuration" />
       <audiences>
-        <audience>${b2cAudience}</audience>
+        <audience>__B2C_AUD__</audience>
       </audiences>
       <issuers>
-        <issuer>https://${b2cTenantName}.b2clogin.com/${b2cTenantName}.onmicrosoft.com/v2.0/</issuer>
+        <issuer>https://__B2C_TENANT__.b2clogin.com/__B2C_TENANT__.onmicrosoft.com/v2.0/</issuer>
       </issuers>
     </validate-jwt>
-''' : ''
+'''
+var b2cJwtFragment = enableB2CAuth && !empty(b2cTenantName) && !empty(b2cSignInPolicy) && !empty(b2cAudience)
+  ? replace(replace(replace(b2cJwtRaw, '__B2C_TENANT__', b2cTenantName), '__B2C_POLICY__', b2cSignInPolicy), '__B2C_AUD__', b2cAudience)
+  : ''
 
 // Client credentials — validate M2M tokens
-var clientCredentialJwtFragment = enableClientCredentialAuth && !empty(clientCredentialTenantId) && !empty(clientCredentialAudience) ? '''
+var ccJwtRaw = '''
     <!-- Machine-to-machine auth (client credentials) -->
-    <validate-jwt header-name="Authorization"
-                  failed-validation-httpcode="401"
-                  failed-validation-error-message="Unauthorized — valid client credential token required">
-      <openid-config url="https://login.microsoftonline.com/${clientCredentialTenantId}/v2.0/.well-known/openid-configuration" />
+    <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized - valid client credential token required">
+      <openid-config url="https://login.microsoftonline.com/__CC_TENANT__/v2.0/.well-known/openid-configuration" />
       <audiences>
-        <audience>${clientCredentialAudience}</audience>
-        <audience>api://${clientCredentialAudience}</audience>
+        <audience>__CC_AUD__</audience>
+        <audience>api://__CC_AUD__</audience>
       </audiences>
       <issuers>
-        <issuer>https://login.microsoftonline.com/${clientCredentialTenantId}/v2.0</issuer>
-        <issuer>https://sts.windows.net/${clientCredentialTenantId}/</issuer>
+        <issuer>https://login.microsoftonline.com/__CC_TENANT__/v2.0</issuer>
+        <issuer>https://sts.windows.net/__CC_TENANT__/</issuer>
       </issuers>
     </validate-jwt>
-''' : ''
-
-// Additional issuers (e.g., partner Entra tenants)
-var additionalIssuerLines = [for issuer in additionalIssuers: '        <issuer>${issuer}</issuer>']
+'''
+var clientCredentialJwtFragment = enableClientCredentialAuth && !empty(clientCredentialTenantId) && !empty(clientCredentialAudience)
+  ? replace(replace(ccJwtRaw, '__CC_TENANT__', clientCredentialTenantId), '__CC_AUD__', clientCredentialAudience)
+  : ''
 
 // ── Policy (global, all operations inherited) ───────────────────────────────
 
-var allIssuers = '''
-        <issuer>https://login.microsoftonline.com/${entraTenantId}/v2.0</issuer>
-        <issuer>https://sts.windows.net/${entraTenantId}/</issuer>
-${join(additionalIssuerLines, '\n')}
-'''
+var corsOriginLines = [for origin in corsOrigins: '        <origin>${origin}</origin>']
+var corsOriginsXml = join(corsOriginLines, '\n')
 
-resource apiPolicy 'Microsoft.ApiManagement/service/apis/policies@2023-12-01' = {
-  parent: apiDef
-  name: 'policy'
-  properties: {
-    format: 'rawxml'
-    value: '''
+var policyRaw = '''
 <policies>
   <inbound>
     <base />
     <set-header name="X-Environment" exists-action="override">
-      <value>${environment}</value>
+      <value>__ENVIRONMENT__</value>
     </set-header>
     <set-header name="X-Api-Gateway" exists-action="override">
-      <value>${apimServiceName}</value>
+      <value>__APIM__</value>
     </set-header>
     <cors allow-credentials="true">
       <allowed-origins>
-${join([for origin in corsOrigins: '        <origin>${origin}</origin>'], '\n')}
+__CORS_ORIGINS__
       </allowed-origins>
       <allowed-methods>
         <method>GET</method>
@@ -232,14 +231,13 @@ ${join([for origin in corsOrigins: '        <origin>${origin}</origin>'], '\n')}
         <header>*</header>
       </allowed-headers>
     </cors>
-    <rate-limit calls="${rateLimitCalls}" renewal-period="${rateLimitPeriod}" />
-${entraJwtFragment}
-${b2cJwtFragment}
-${clientCredentialJwtFragment}
-    <!-- At least one validate-jwt must pass or request is 401 -->
+    <rate-limit calls="__RATE_CALLS__" renewal-period="__RATE_PERIOD__" />
+__ENTRA_JWT__
+__B2C_JWT__
+__CC_JWT__
     <choose>
-      <when condition="@(context.Request.Headers.GetValueOrDefault("Authorization","").Contains("Bearer"))">
-        <!-- Token present — one of the validate-jwt blocks above already checked it -->
+      <when condition="@(context.Request.Headers.GetValueOrDefault(&quot;Authorization&quot;,&quot;&quot;).Contains(&quot;Bearer&quot;))">
+        <!-- Token present - one of the validate-jwt blocks above already checked it -->
       </when>
       <otherwise>
         <return-response>
@@ -247,7 +245,7 @@ ${clientCredentialJwtFragment}
           <set-body>@{
             return new JObject(
               new JProperty("error", "unauthorized"),
-              new JProperty("message", "Bearer token required. See https://${apimServiceName}.developer.azure-api.net/ for authentication instructions.")
+              new JProperty("message", "Bearer token required. See https://__APIM__.developer.azure-api.net/ for authentication instructions.")
             ).ToString();
           }</set-body>
         </return-response>
@@ -265,7 +263,7 @@ ${clientCredentialJwtFragment}
     <base />
     <set-header name="X-Powered-By" exists-action="delete" />
     <set-header name="X-Environment" exists-action="override">
-      <value>${environment}</value>
+      <value>__ENVIRONMENT__</value>
     </set-header>
   </outbound>
   <on-error>
@@ -273,6 +271,15 @@ ${clientCredentialJwtFragment}
   </on-error>
 </policies>
 '''
+
+var policyXml = replace(replace(replace(replace(replace(replace(replace(replace(policyRaw, '__ENVIRONMENT__', environment), '__APIM__', apimServiceName), '__CORS_ORIGINS__', corsOriginsXml), '__RATE_CALLS__', string(rateLimitCalls)), '__RATE_PERIOD__', string(rateLimitPeriod)), '__ENTRA_JWT__', entraJwtFragment), '__B2C_JWT__', b2cJwtFragment), '__CC_JWT__', clientCredentialJwtFragment)
+
+resource apiPolicy 'Microsoft.ApiManagement/service/apis/policies@2023-12-01' = {
+  parent: apiDef
+  name: 'policy'
+  properties: {
+    format: 'rawxml'
+    value: policyXml
   }
 }
 
