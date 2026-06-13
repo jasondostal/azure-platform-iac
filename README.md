@@ -9,6 +9,7 @@ Shared Bicep platform modules — the single source of truth for Azure infrastru
 | **azure-platform-iac** (this repo) | Platform modules — generic, reusable Bicep templates |
 | [azure-iac-reference](../azure-iac-reference) | Reference app — .NET web app consuming platform modules |
 | [azure-iac-patterns](../azure-iac-patterns) | Patterns catalog — standalone service templates (Service Bus, Cosmos, etc.) |
+| [azure-project-starter](../azure-project-starter) | Cookiecutter template — one command generates a new project repo with pipeline, IaC, and .NET starter |
 
 ## Architecture
 
