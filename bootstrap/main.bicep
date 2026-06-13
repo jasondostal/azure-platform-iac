@@ -45,6 +45,11 @@ param servicePrincipalName string = ''
 
 var rgName = 'rg-${platformName}-shared'
 
+// Deterministic per-subscription suffix so globally-unique names (ACR, Key
+// Vault) don't collide with resources claimed elsewhere in Azure. Stable across
+// reruns in the same subscription, so deployments stay idempotent.
+var uniq = substring(uniqueString(subscription().subscriptionId), 0, 6)
+
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: rgName
   location: location
@@ -73,7 +78,7 @@ module acr 'acr.bicep' = {
   name: 'deploy-acr'
   scope: resourceGroup
   params: {
-    name: replace('${platformName}acr${environment}', '-', '')
+    name: replace('${platformName}acr${environment}${uniq}', '-', '')
     location: location
     sku: (environment == 'prod' ? 'Standard' : 'Basic')
   }
@@ -85,7 +90,7 @@ module keyVault '../modules/security/key-vault.bicep' = {
   name: '${platformName}-kv-${environment}'
   scope: resourceGroup
   params: {
-    name: '${platformName}-kv-${environment}'
+    name: '${platformName}-kv-${environment}-${uniq}'
     location: location
     tenantId: tenantId
     enablePurgeProtection: (environment == 'prod')

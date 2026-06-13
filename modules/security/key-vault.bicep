@@ -43,7 +43,9 @@ resource vault 'Microsoft.KeyVault/vaults@2024-04-01-preview' = {
     enabledForDeployment: true
     enabledForTemplateDeployment: true
     enableSoftDelete: true
-    enablePurgeProtection: enablePurgeProtection
+    // Azure only accepts `true` or null here — explicitly setting `false` is
+    // rejected ("cannot be set to false"). Omit the property to leave it off.
+    enablePurgeProtection: enablePurgeProtection ? true : null
     enableRbacAuthorization: enableRbacAuthorization
     networkAcls: {
       defaultAction: disablePublicAccess ? 'Deny' : 'Allow'
