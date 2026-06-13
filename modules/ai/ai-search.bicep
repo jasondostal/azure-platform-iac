@@ -41,6 +41,9 @@ param publicNetworkAccess bool = true
 @description('Whether to enable managed identity')
 param enableManagedIdentity bool = true
 
+@description('Disable API-key (local) auth — RBAC / managed-identity only. Recommended for passwordless; confirm Foundry and app consumers use RBAC first.')
+param disableLocalAuth bool = false
+
 @description('Environment tag')
 param environment string
 
@@ -59,6 +62,7 @@ resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' = {
     publicNetworkAccess: publicNetworkAccess ? 'enabled' : 'disabled'
     semanticSearch: enableSemanticSearch ? 'free' : 'disabled'
     hostingMode: 'default'
+    disableLocalAuth: disableLocalAuth
   }
   identity: enableManagedIdentity ? {
     type: 'SystemAssigned'
@@ -74,5 +78,4 @@ resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' = {
 output searchServiceName string = searchService.name
 output searchServiceId string = searchService.id
 output searchEndpoint string = 'https://${name}.search.windows.net'
-output adminKey string = searchService.listAdminKeys().primaryKey
 output managedIdentityPrincipalId string = enableManagedIdentity ? searchService.identity.principalId : ''

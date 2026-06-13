@@ -35,6 +35,9 @@ param enableManagedIdentity bool = true
 @description('Model deployments to create. Each: {name, modelFormat, modelName, modelVersion?, skuName?, skuCapacity?}')
 param modelDeployments array = []
 
+@description('Disable account-key (local) auth on AI Services — Entra / managed-identity only. Recommended; confirm Foundry agents and consumers use Entra auth first.')
+param disableLocalAuth bool = false
+
 @description('Environment tag')
 param environment string
 
@@ -53,6 +56,7 @@ resource aiServices 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
   properties: {
     publicNetworkAccess: publicNetworkAccess ? 'Enabled' : 'Disabled'
     customSubDomainName: aisvcName
+    disableLocalAuth: disableLocalAuth
     apiProperties: {
       statisticsEnabled: false
     }
@@ -115,5 +119,4 @@ output hubId string = hub.id
 output aiServicesName string = aiServices.name
 output aiServicesId string = aiServices.id
 output aiServicesEndpoint string = aiServices.properties.endpoint
-output aiServicesKey string = aiServices.listKeys().key1
 output managedIdentityPrincipalId string = enableManagedIdentity ? aiServices.identity.principalId : ''
