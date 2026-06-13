@@ -25,7 +25,7 @@ azure-platform-iac/              ← PLATFORM REPO (this one)
 │   ├── identity/                ← entra-app-registration, entra-b2c
 │   └── ai/                      ← foundry-hub, foundry-project, ai-search
 │
-├── bootstrap/                   ← subscription onboarding (ACR, Log Analytics, SP)
+├── bootstrap/                   ← subscription onboarding (ACR, Log Analytics, Key Vault)
 │
 ├── pipelines/templates/         ← shared ADO pipeline templates
 │   ├── build-dotnet.yml         → .NET build + test + publish
@@ -54,7 +54,7 @@ azure-project-starter/           ← COOKIECUTTER TEMPLATE
 | `compute/app-service-plan` | Compute | App Service Plan (Linux/Windows, all SKUs) |
 | `compute/app-service` | Compute | App Service (any runtime, managed identity, VNet integration) |
 | `compute/function-app` | Compute | Function App (.NET/Node/Python/Java, serverless or dedicated) |
-| `data/sql-server` | Data | SQL Server (logical server, firewall, private endpoints) |
+| `data/sql-server` | Data | SQL Server (logical server, firewall, private endpoints, Entra admin, Entra-only auth) |
 | `data/sql-database` | Data | SQL Database (any SKU, free to hyperscale) |
 | `data/cosmos-db` | Data | Cosmos DB account (serverless or provisioned, all consistency levels) |
 | `data/storage` | Data | Storage Account v2 (blob/file/table/queue services, soft-delete) |
@@ -75,7 +75,17 @@ azure-project-starter/           ← COOKIECUTTER TEMPLATE
 
 ### Bootstrap
 
-`bootstrap/main.bicep` — one-time subscription onboarding. Deploys ACR, Log Analytics, ADO Service Principal, and Key Vault. Makes a fresh subscription platform-ready in one deployment.
+`bootstrap/main.bicep` — one-time subscription onboarding. Deploys ACR, Log Analytics, and Key Vault to make a fresh subscription platform-ready.
+
+ACR and Key Vault names take a per-subscription uniqueness suffix (`uniqueString`) to avoid collisions on these globally-unique names.
+
+Service principal creation is opt-in (`createServicePrincipal`, default `false`). The in-Bicep `deploymentScript` path requires the script identity to hold Entra app-registration and subscription role-assignment rights, which a fresh script identity does not have; create the ADO service connection out-of-band instead (manual `az ad sp create-for-rbac`, or workload-identity federation).
+
+### Passwordless SQL
+
+`data/sql-server` supports Entra-only authentication (`entraOnlyAuth`, default `true`): the server is created with an Entra admin and no usable SQL login. Applications and provisioning identities connect with managed identity (`Authentication=Active Directory Managed Identity`); no password is stored in app configuration.
+
+Prerequisite: the SQL server's managed identity must hold the Entra **Directory Readers** role. Azure SQL uses it to validate managed-identity / service-principal logins and to resolve `CREATE USER ... FROM EXTERNAL PROVIDER`. Bicep cannot assign Entra directory roles, so grant this out-of-band — for example, add each server identity to a group that holds Directory Readers.
 
 ### Pipeline Templates
 
