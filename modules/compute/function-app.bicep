@@ -52,12 +52,21 @@ var linuxFxVersion = {
   custom: 'DOCKER|app'
 }
 
-var defaultSettings = {
-  AzureWebJobsStorage: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=core.windows.net;AccountKey=${listKeys(resourceId('Microsoft.Storage/storageAccounts', storageAccountName), '2023-04-01').keys[0].value}'
-  FUNCTIONS_EXTENSION_VERSION: '~4'
-  FUNCTIONS_WORKER_RUNTIME: runtimeStack
-  WEBSITE_RUN_FROM_PACKAGE: '1'
-}
+// Built as arrays of {name,value} (not an object) so the user appSettings
+// for-expression can be a variable and concat'd directly — a for-expression
+// nested inside concat() is illegal (BCP138), and enumerating an object that
+// holds a listKeys() value can't be done at deployment start (BCP178).
+var defaultSettings = [
+  {
+    name: 'AzureWebJobsStorage'
+    value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};EndpointSuffix=core.windows.net;AccountKey=${listKeys(resourceId('Microsoft.Storage/storageAccounts', storageAccountName), '2023-04-01').keys[0].value}'
+  }
+  { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+  { name: 'FUNCTIONS_WORKER_RUNTIME', value: runtimeStack }
+  { name: 'WEBSITE_RUN_FROM_PACKAGE', value: '1' }
+]
+
+var extraSettings = [for entry in items(appSettings): { name: entry.key, value: entry.value }]
 
 resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: name
@@ -72,10 +81,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       vnetRouteAllEnabled: enableVnetIntegration
-      appSettings: concat(
-        [for entry in items(defaultSettings): { name: entry.key, value: entry.value }],
-        [for entry in items(appSettings): { name: entry.key, value: entry.value }]
-      )
+      appSettings: concat(defaultSettings, extraSettings)
     }
   }
   identity: {
