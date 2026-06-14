@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
     --ado-project)  ADO_PROJECT="$2"; shift 2 ;;
     --project)      PROJECT="$2"; shift 2 ;;
     --location)     LOCATION="$2"; shift 2 ;;
-    --app-name)     APP_NAME="$2"; shift 2 ;;
+    --app-name)     APP_NAME="$2"; APP_NAME_EXPLICIT=true; shift 2 ;;
     --dry-run)      DRY_RUN=true; shift ;;
     *) echo "✗ unknown arg: $1" >&2; exit 1 ;;
   esac
@@ -72,6 +72,7 @@ done
 : "${ADO_ORG:?--ado-org is required (https://dev.azure.com/<org>)}"
 : "${ADO_PROJECT:?--ado-project is required}"
 : "${PROJECT:?--project is required}"
+# Convention: App Service names follow <project>-app-<env> — must match infra.
 APP_NAME="${APP_NAME:-${PROJECT}-app-${ENVIRONMENT}}"
 
 APP_REG_NAME="${PROJECT}-ado-${ENVIRONMENT}"
@@ -86,6 +87,29 @@ ok()   { printf '  \033[1;32m✓\033[0m %s\n' "$*"; }
 warn() { printf '  \033[1;33m⚠\033[0m %s\n' "$*" >&2; }
 run()  { if $DRY_RUN; then printf '  [dry-run] %s\n' "$*"; else eval "$*"; fi; }
 
+# R2 — grant "all pipelines" authorization for an ADO resource so app pipelines
+# don't stall on a manual authorization checkpoint on first run. Best-effort.
+# Usage: authorize_pipeline_resource <resourceType> <resourceId>
+# Note: api-version must be 7.1-preview (no trailing .N — az devops invoke rejects it).
+authorize_pipeline_resource() {
+  local rtype="$1" rid="$2"
+  if $DRY_RUN; then
+    run "az devops invoke ... --area pipelinePermissions --resource pipelinePermissions --route-parameters project='$ADO_PROJECT' resourceType=$rtype resourceId=$rid --http-method PATCH --api-version 7.1-preview"
+    return
+  fi
+  local auth_body
+  auth_body="$(mktemp)"
+  printf '{"allPipelines":{"authorized":true}}' > "$auth_body"
+  az devops invoke "${ADO_ARGS[@]}" \
+    --area pipelinePermissions --resource pipelinePermissions \
+    --route-parameters project="$ADO_PROJECT" resourceType="$rtype" resourceId="$rid" \
+    --http-method PATCH --in-file "$auth_body" \
+    --api-version 7.1-preview >/dev/null 2>&1 \
+    && ok "authorized $rtype for all pipelines" \
+    || warn "could not authorize $rtype ($rid) for all pipelines — do it in ADO UI (Pipelines → Settings → Resources)"
+  rm -f "$auth_body"
+}
+
 need() { command -v "$1" >/dev/null || { echo "✗ missing dependency: $1" >&2; exit 1; }; }
 need az; need jq
 
@@ -99,6 +123,11 @@ az extension show --name azure-devops >/dev/null 2>&1 || {
 # instead, so this script never mutates your machine's persistent CLI defaults.
 ADO_ARGS=(--organization "$ADO_ORG")
 ADOP_ARGS=(--organization "$ADO_ORG" --project "$ADO_PROJECT")
+
+# R5 — app-name consistency guard: explicit --app-name must match <project>-app-<env>.
+if [[ "${APP_NAME_EXPLICIT:-false}" == "true" && "$APP_NAME" != "${PROJECT}-app-${ENVIRONMENT}" ]]; then
+  warn "--app-name '$APP_NAME' does not match the infra convention '${PROJECT}-app-${ENVIRONMENT}' — the deploy will fail with 'Resource doesn't exist' if these differ. Proceeding anyway."
+fi
 
 cat <<BANNER
 ══════════════════════════════════════════════════════════════════════════════
@@ -243,6 +272,7 @@ JSON
 else
   ok "service connection exists ($EP_ID)"
 fi
+authorize_pipeline_resource endpoint "$EP_ID"
 
 # ── 3b. Federated credential — bind the app reg to the ADO service connection ─
 # ADO reports the exact issuer + subject for the endpoint; use those verbatim.
@@ -281,12 +311,13 @@ else
 fi
 
 # ── 3c. Variable groups ──────────────────────────────────────────────────────
+LAST_VARGROUP_ID=""  # R2: set by upsert_varset so caller can authorize the group.
 upsert_varset() {  # upsert_varset <group-name> KEY=VAL [KEY=VAL ...]
   local group="$1"; shift
   local gid
   gid="$(az pipelines variable-group list "${ADOP_ARGS[@]}" --query "[?name=='$group'].id | [0]" -o tsv 2>/dev/null || true)"
   if [[ -z "$gid" ]]; then
-    if $DRY_RUN; then run "az pipelines variable-group create --organization '$ADO_ORG' --project '$ADO_PROJECT' --name '$group' --variables $*"; return; fi
+    if $DRY_RUN; then run "az pipelines variable-group create --organization '$ADO_ORG' --project '$ADO_PROJECT' --name '$group' --variables $*"; LAST_VARGROUP_ID="<dry-run-vgid>"; return; fi
     gid="$(az pipelines variable-group create "${ADOP_ARGS[@]}" --name "$group" --variables "$@" --query id -o tsv)"
     ok "created variable group $group ($gid)"
   else
@@ -298,33 +329,59 @@ upsert_varset() {  # upsert_varset <group-name> KEY=VAL [KEY=VAL ...]
     done
     ok "updated variable group $group ($gid)"
   fi
+  LAST_VARGROUP_ID="$gid"
 }
 
 upsert_varset "$VG_SHARED" "tenantId=$TENANT_ID"
+authorize_pipeline_resource variablegroup "$LAST_VARGROUP_ID"
 upsert_varset "$VG_ENV" \
   "${ENVIRONMENT}ServiceConnection=$SERVICE_CONNECTION" \
   "${ENVIRONMENT}AppName=$APP_NAME" \
   "keyVaultName=$KV_NAME" \
   "acrLoginServer=$ACR_LOGIN"
+authorize_pipeline_resource variablegroup "$LAST_VARGROUP_ID"
 
 # ── 3d. ADO Environment (approval checks are configured in the UI) ────────────
+ADO_ENV_ID=""
 ENV_EXISTS="$(az devops invoke "${ADO_ARGS[@]}" --area distributedtask --resource environments \
   --route-parameters project="$ADO_PROJECT" --api-version 7.1-preview \
-  --query "value[?name=='$ADO_ENVIRONMENT'].name | [0]" -o tsv 2>/dev/null || true)"
+  --query "value[?name=='$ADO_ENVIRONMENT'].id | [0]" -o tsv 2>/dev/null || true)"
 if [[ -z "$ENV_EXISTS" ]]; then
   if $DRY_RUN; then
     ok "[dry-run] would create ADO environment $ADO_ENVIRONMENT"
+    ADO_ENV_ID="<dry-run-envid>"
   else
     ENV_BODY="$(mktemp)"; echo "{\"name\":\"$ADO_ENVIRONMENT\",\"description\":\"$PROJECT $ENVIRONMENT\"}" > "$ENV_BODY"
-    az devops invoke "${ADO_ARGS[@]}" --area distributedtask --resource environments \
+    ADO_ENV_ID="$(az devops invoke "${ADO_ARGS[@]}" --area distributedtask --resource environments \
       --route-parameters project="$ADO_PROJECT" --http-method POST \
-      --in-file "$ENV_BODY" --api-version 7.1-preview >/dev/null 2>&1 \
-      && ok "created ADO environment $ADO_ENVIRONMENT" \
-      || warn "could not create ADO environment $ADO_ENVIRONMENT (create it in the UI)"
+      --in-file "$ENV_BODY" --api-version 7.1-preview \
+      --query id -o tsv 2>/dev/null || true)"
+    if [[ -n "$ADO_ENV_ID" ]]; then
+      ok "created ADO environment $ADO_ENVIRONMENT ($ADO_ENV_ID)"
+    else
+      warn "could not create ADO environment $ADO_ENVIRONMENT (create it in the UI)"
+    fi
     rm -f "$ENV_BODY"
   fi
 else
-  ok "ADO environment exists ($ADO_ENVIRONMENT)"
+  ADO_ENV_ID="$ENV_EXISTS"
+  ok "ADO environment exists ($ADO_ENVIRONMENT, id=$ADO_ENV_ID)"
+fi
+[[ -n "$ADO_ENV_ID" ]] && authorize_pipeline_resource environment "$ADO_ENV_ID"
+
+# ── 3e. Authorize the Default agent pool queue for all pipelines ──────────────
+if $DRY_RUN; then
+  run "az devops invoke ... --area distributedtask --resource queues --route-parameters project='$ADO_PROJECT' (query Default queue id)"
+  authorize_pipeline_resource queue "<dry-run-queueid>"
+else
+  DEFAULT_QUEUE_ID="$(az devops invoke "${ADO_ARGS[@]}" --area distributedtask --resource queues \
+    --route-parameters project="$ADO_PROJECT" --api-version 7.1-preview \
+    --query "value[?name=='Default'].id | [0]" -o tsv 2>/dev/null || true)"
+  if [[ -n "$DEFAULT_QUEUE_ID" ]]; then
+    authorize_pipeline_resource queue "$DEFAULT_QUEUE_ID"
+  else
+    warn "Default agent pool queue not found — skipping queue authorization (add it in ADO)"
+  fi
 fi
 
 cat <<DONE
