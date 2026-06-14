@@ -23,7 +23,8 @@ azure-platform-iac/              ← PLATFORM REPO (this one)
 │   ├── security/                ← key-vault
 │   ├── integration/             ← api-management, apim-api
 │   ├── identity/                ← entra-app-registration, entra-b2c
-│   └── ai/                      ← foundry-hub, foundry-project, ai-search
+│   ├── ai/                      ← foundry-hub, foundry-project, ai-search
+│   └── devops/                  ← agent-aci (VNet self-hosted ADO agent)
 │
 ├── bootstrap/                   ← subscription onboarding (ACR, Log Analytics, Key Vault)
 │
@@ -33,7 +34,7 @@ azure-platform-iac/              ← PLATFORM REPO (this one)
 │   ├── build-go.yml             → Go build + cross-compile (web or desktop)
 │   ├── build-node.yml           → Node/TS build + test + package
 │   ├── security-gates.yml       → gitleaks, trivy, semgrep, NuGet scan
-│   └── deploy-environment.yml   → branch-gated stage: deploy app (+ optional infra)
+│   └── deploy-environment.yml   → approval-gated stage: deploy app (+ optional infra)
 │
 azure-iac-reference/             ← APP REPO (web app)
 │   infra/main.bicep              → consumes platform modules
@@ -72,14 +73,32 @@ azure-project-starter/           ← COOKIECUTTER TEMPLATE
 | `ai/foundry-project` | AI | Foundry Project (agent scope) |
 | `ai/ai-search` | AI | Azure AI Search (RAG vector stores) |
 | `ai/foundry-agent-setup` | AI | deploymentScripts for API-only agent creation |
+| `devops/agent-aci` | DevOps | Self-hosted ADO agent(s) on VNet-injected ACI — required to deploy into private-endpoint estates (passwordless ACR pull, PAT from Key Vault) |
 
 ### Bootstrap
 
-`bootstrap/main.bicep` — one-time subscription onboarding. Deploys ACR, Log Analytics, and Key Vault to make a fresh subscription platform-ready.
+Onboarding a subscription touches **three planes**, and they need different tools — which is why bootstrap is a script that *calls* Bicep, not Bicep alone:
 
-ACR and Key Vault names take a per-subscription uniqueness suffix (`uniqueString`) to avoid collisions on these globally-unique names.
+| Plane | What | Tool |
+|-------|------|------|
+| **Resource** | RG, ACR, Log Analytics, Key Vault | `bootstrap/main.bicep` |
+| **Identity** | ADO deploy app reg + WIF + RBAC | `az` CLI (Bicep can't create app regs) |
+| **ADO** | service connection, variable groups, environment | `az devops` CLI |
 
-Service principal creation is opt-in (`createServicePrincipal`, default `false`). The in-Bicep `deploymentScript` path requires the script identity to hold Entra app-registration and subscription role-assignment rights, which a fresh script identity does not have; create the ADO service connection out-of-band instead (manual `az ad sp create-for-rbac`, or workload-identity federation).
+**`bootstrap/onboard-subscription.sh`** orchestrates all three in one idempotent command:
+
+```bash
+./bootstrap/onboard-subscription.sh \
+  --env dev --subscription <sub-id> \
+  --ado-org https://dev.azure.com/<org> --ado-project <project> \
+  --project contoso
+```
+
+Run it once per env you stand up (each env is typically its own subscription). It's idempotent — safe to re-run — and supports `--dry-run`.
+
+`bootstrap/main.bicep` is **resource-plane only**. ACR and Key Vault names take a per-subscription uniqueness suffix (`uniqueString`) to avoid collisions on these globally-unique names.
+
+**Identity uses Workload Identity Federation (WIF), not a stored secret.** The ADO service connection federates to the deploy app registration via OIDC — there is no SP password to store, rotate, or leak. (The old in-Bicep `deploymentScript` SP-creation path was removed: a fresh script identity can't hold the Entra app-registration + subscription role-assignment rights it would need, so it never worked. The script does this correctly, out-of-band.)
 
 ### Passwordless SQL
 
@@ -96,9 +115,26 @@ Prerequisite: the SQL server's managed identity must hold the Entra **Directory 
 | `pipelines/templates/build-go.yml` | Go build with cross-compile (web or desktop) |
 | `pipelines/templates/build-node.yml` | Node.js / TypeScript build, test, package |
 | `pipelines/templates/security-gates.yml` | Shared scanners — gitleaks, trivy, semgrep, NuGet vuln |
-| `pipelines/templates/deploy-environment.yml` | Emits a branch-gated **stage** that deploys the app (and optionally Bicep infra) to one environment |
+| `pipelines/templates/deploy-environment.yml` | Emits an approval-gated **stage** (no branch gating) that deploys the app (and optionally Bicep infra) to one environment in the promotion chain |
 
 **Add a scanner here → every team gets it on next build.** No repo-by-repo patching.
+
+### Self-Hosted Agents (required once you go private-endpoint)
+
+`modules/devops/agent-aci.bicep` — a self-hosted Azure DevOps agent running on **VNet-injected Azure Container Instances**.
+
+This is **not optional** in a private-by-default estate, and the reason is structural:
+
+> When `enablePrivateEndpoints=true`, app resources (App Service, SQL, Key Vault) have **no public endpoint** — they are reachable only from inside the VNet. **Microsoft-hosted ADO agents run on Microsoft's network, outside your tenant**, so they physically cannot route to those resources. Deploys hang and time out. A **VNet-integrated self-hosted agent is the only thing that can deploy into private-endpoint-locked infrastructure.**
+
+So the regulatory "private-by-default" posture *forces* self-hosted agents — they're the other half of the private-endpoint story. The module:
+
+- runs the agent container (built from `modules/devops/agent-image/`) on ACI, injected into a VNet subnet delegated to `Microsoft.ContainerInstance/containerGroups`;
+- pulls its image **passwordlessly** (user-assigned identity + AcrPull, cross-RG aware);
+- takes its registration **PAT from Key Vault** (agent registration has no Workload Identity Federation path — it's the one unavoidable secret);
+- scales by fixed `agentCount` (each container group = one persistent agent).
+
+Pipelines then target `pool: name: <your-pool>` and deploy through the in-VNet agent. The companion `deploy-environment.yml`/app pipelines work unchanged — only the agent pool differs.
 
 ## Design Rules
 

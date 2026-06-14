@@ -4,15 +4,18 @@
 # Deploy an app (and optionally its Bicep infra) to a single environment.
 # Emits a STAGE — consume it once per environment under the pipeline's `stages:`.
 #
-# Branch gating: pass `branch` (e.g. refs/heads/dev) and the stage only runs on
-# that branch. Approval gating: the deployment job targets an ADO Environment
-# (`adoEnvironment`), where checks/approvals are configured in the ADO UI.
+# BUILD ONCE, DEPLOY MANY: there is NO branch gating. One pipeline run (off
+# `main`) builds a single artifact, then promotes that SAME artifact through a
+# LINEAR chain of these stages — dev → qa → stage → prod — wired by `dependsOn`.
+# Promotion is gated by ADO Environment approvals (`adoEnvironment`), configured
+# in the ADO UI. Which env this stage targets is a pure config choice (the
+# variable group + bicepparam it selects), not a function of the git branch.
 #
 # Parameters:
 #   environment:        dev | qa | staging | prod   (logical name → stage id)
 #   adoEnvironment:     ADO Environment resource for approvals (default: environment)
-#   branch:             refs/heads/* to gate on; '' = run on any branch
-#   dependsOn:          stage(s) this deploy waits on (default: [])
+#   dependsOn:          stage(s) this deploy waits on — the PREVIOUS env in the
+#                       promotion chain (e.g. qa dependsOn ['Deploy_dev'])
 #   variableGroups:     ADO Library variable groups to import (default: [])
 #   serviceConnection:  Azure RM service connection name
 #   appName:            App Service / Function App name
@@ -32,9 +35,6 @@ parameters:
       - staging
       - prod
   - name: adoEnvironment
-    type: string
-    default: ''
-  - name: branch
     type: string
     default: ''
   - name: dependsOn
@@ -66,13 +66,14 @@ parameters:
   - name: infraParams
     type: string
     default: ''
+  - name: location
+    type: string
+    default: 'eastus'
 
 stages:
   - stage: Deploy_${{ parameters.environment }}
     displayName: 'Deploy → ${{ upper(parameters.environment) }}'
     dependsOn: ${{ parameters.dependsOn }}
-    ${{ if ne(parameters.branch, '') }}:
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], '${{ parameters.branch }}'))
     ${{ if gt(length(parameters.variableGroups), 0) }}:
       variables:
         - ${{ each vg in parameters.variableGroups }}:
@@ -99,7 +100,7 @@ stages:
                       scriptLocation: 'inlineScript'
                       inlineScript: |
                         az deployment sub create \
-                          --location eastus \
+                          --location ${{ parameters.location }} \
                           --template-file ${{ parameters.infraTemplate }} \
                           --parameters ${{ parameters.infraParams }}
 

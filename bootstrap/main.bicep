@@ -3,20 +3,23 @@ targetScope = 'subscription'
 // ═══════════════════════════════════════════════════════════════════════════
 // azure-platform-iac — bootstrap/main.bicep
 //
-// One-time bootstrap for a new Azure subscription — provisions the
-// minimum infrastructure to make a subscription "platform-ready":
+// One-time bootstrap for a new Azure subscription — provisions the RESOURCE
+// PLANE that makes a subscription "platform-ready":
 //
-//   1. Resource Group for platform-shared resources (ACR, Log Analytics)
+//   1. Resource Group for platform-shared resources
 //   2. Azure Container Registry (private, admin disabled)
 //   3. Log Analytics Workspace (centralized logging)
-//   4. Service Principal for ADO service connections
-//   5. RBAC assignments (Contributor on subscription for the ADO SP)
-//   6. Key Vault for platform secrets
+//   4. Key Vault for platform secrets (RBAC-authorized)
 //
-// After this runs, the subscription can consume platform modules from
-// azure-platform-iac — `az deployment sub create` with any module works.
+// IDENTITY PLANE (the ADO deploy identity + its RBAC) is intentionally NOT
+// here. Bicep cannot create Entra app registrations, and a deploymentScript's
+// own managed identity does not (and should not) hold the Application + role-
+// assignment rights needed to mint a subscription-Contributor service
+// principal. That work lives in `bootstrap/onboard-subscription.sh`, which uses
+// Workload Identity Federation (no stored secret) and az CLI. Run the script;
+// it calls this template as step 1, then wires identity + the ADO plane.
 //
-// Usage:
+// Usage (resource plane only — normally invoked by onboard-subscription.sh):
 //   az deployment sub create \
 //     --location eastus \
 //     --template-file bootstrap/main.bicep \
@@ -34,12 +37,6 @@ param tenantId string
 
 @description('Base name for platform resources')
 param platformName string = 'platform'
-
-@description('Whether to create an ADO service principal for deployments')
-param createServicePrincipal bool = true
-
-@description('Service principal name (defaults to {platformName}-ado-sp-{environment})')
-param servicePrincipalName string = ''
 
 // ── Resource Group ──────────────────────────────────────────────────────────
 
@@ -98,34 +95,8 @@ module keyVault '../modules/security/key-vault.bicep' = {
   }
 }
 
-// ── Service Principal for ADO (nested module — RG-scoped deploymentScript) ──
-
-var spName = !empty(servicePrincipalName) ? servicePrincipalName : '${platformName}-ado-sp-${environment}'
-
-module sp 'create-sp.bicep' = if (createServicePrincipal) {
-  name: 'deploy-sp'
-  scope: resourceGroup
-  params: {
-    spName: spName
-    keyVaultName: keyVault.outputs.name
-    environment: environment
-    location: location
-  }
-}
-
-// ── RBAC: grant deployment script MI access to Key Vault ────────────────────
-// (Runs as a nested deployment at RG scope to avoid cross-scope issues.)
-
-module kvAccess 'kv-access.bicep' = if (createServicePrincipal) {
-  name: 'grant-kv-access'
-  scope: resourceGroup
-  params: {
-    keyVaultName: keyVault.outputs.name
-    principalId: sp.outputs.identityPrincipalId
-  }
-}
-
 // ── Outputs ─────────────────────────────────────────────────────────────────
+// onboard-subscription.sh reads these to wire the identity + ADO planes.
 
 output resourceGroupName string = resourceGroup.name
 output logAnalyticsWorkspaceId string = logAnalytics.outputs.id
@@ -133,4 +104,3 @@ output acrName string = acr.outputs.name
 output acrLoginServer string = acr.outputs.loginServer
 output keyVaultName string = keyVault.outputs.name
 output keyVaultUri string = keyVault.outputs.uri
-output servicePrincipalName string = spName

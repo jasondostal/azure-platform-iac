@@ -40,6 +40,9 @@ param appSettings object = {}
 @description('Connection strings (key-value pairs injected as app settings with ConnectionStrings__ prefix)')
 param connectionStrings object = {}
 
+@description('Disable public network access — the app is then reachable ONLY via private endpoint (requires a VNet-integrated/self-hosted deploy agent; Microsoft-hosted agents cannot reach it)')
+param disablePublicAccess bool = false
+
 @description('Whether to enable VNet integration (outbound traffic through VNet)')
 param enableVnetIntegration bool = false
 
@@ -83,6 +86,7 @@ resource app 'Microsoft.Web/sites@2024-04-01' = {
   properties: {
     serverFarmId: appServicePlanId
     httpsOnly: httpsOnly
+    publicNetworkAccess: disablePublicAccess ? 'Disabled' : 'Enabled'
     siteConfig: {
       linuxFxVersion: runtimeStack
       alwaysOn: alwaysOn

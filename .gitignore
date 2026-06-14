@@ -1,6 +1,9 @@
 # Bicep generated ARM templates
 *.json
 
+# Throwaway E2E test scaffolding (kept locally for teardown reference)
+.e2e-*.bicep
+
 # OS files
 .DS_Store
 Thumbs.db
