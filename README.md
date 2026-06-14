@@ -22,7 +22,7 @@ Shared Bicep platform modules — the single source of truth for Azure infrastru
 ```
 azure-platform-iac/              ← PLATFORM REPO (this one)
 ├── modules/
-│   ├── compute/                 ← app-service, app-service-plan, function-app
+│   ├── compute/                 ← app-service, app-service-plan, function-app, container-app-environment, container-app
 │   ├── data/                    ← sql-server, sql-database, cosmos-db, storage
 │   ├── messaging/               ← service-bus, eventgrid-topic
 │   ├── networking/              ← vnet, private-dns-zones, private-endpoint
@@ -61,6 +61,8 @@ azure-project-starter/           ← COOKIECUTTER TEMPLATE
 | `compute/app-service-plan` | Compute | App Service Plan (Linux/Windows, all SKUs) |
 | `compute/app-service` | Compute | App Service (any runtime, managed identity, VNet integration) |
 | `compute/function-app` | Compute | Function App (.NET/Node/Python/Java, serverless or dedicated) |
+| `compute/container-app-environment` | Compute | Container Apps managed environment (VNet integration, Log Analytics, private-internal mode) |
+| `compute/container-app` | Compute | Container App (scale-to-zero, passwordless ACR pull, SystemAssigned identity, internal/external ingress) |
 | `data/sql-server` | Data | SQL Server (logical server, firewall, private endpoints, Entra admin, Entra-only auth) |
 | `data/sql-database` | Data | SQL Database (any SKU, free to hyperscale) |
 | `data/cosmos-db` | Data | Cosmos DB account (serverless or provisioned, all consistency levels) |
