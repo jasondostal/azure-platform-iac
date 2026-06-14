@@ -120,9 +120,32 @@ az account set --subscription "$SUBSCRIPTION_ID"
 TENANT_ID="$(az account show --query tenantId -o tsv)"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PLANE 1 — RESOURCE: deploy the Bicep bootstrap (RG, ACR, Log Analytics, KV)
+# PLANE 1 — RESOURCE: register providers, then deploy the Bicep bootstrap
 # ══════════════════════════════════════════════════════════════════════════════
-log "Plane 1/3 — Resource: deploying bootstrap/main.bicep"
+log "Plane 1/3 — Resource: registering providers + deploying bootstrap/main.bicep"
+
+# Fresh subscriptions often have resource providers UNregistered. That surfaces
+# later as confusing failures — e.g. App Service workers need Microsoft.Compute
+# registered, and without it quota reads as 0 ("SubscriptionIsOverQuotaForSku,
+# Total VMs: 0"). Register the whole platform surface up front. Registration is
+# async + idempotent; we kick it off and continue (it finishes in the background
+# well before any app deploys).
+PROVIDERS=(Microsoft.Compute Microsoft.Web Microsoft.Network Microsoft.KeyVault
+  Microsoft.Storage Microsoft.ContainerInstance Microsoft.ContainerRegistry
+  Microsoft.OperationalInsights Microsoft.Insights Microsoft.ManagedIdentity
+  Microsoft.Sql Microsoft.ServiceBus Microsoft.EventGrid Microsoft.DocumentDB
+  Microsoft.CognitiveServices Microsoft.Search Microsoft.ApiManagement)
+for ns in "${PROVIDERS[@]}"; do
+  if $DRY_RUN; then
+    run "az provider register --namespace $ns"
+  else
+    state="$(az provider show --namespace "$ns" --query registrationState -o tsv 2>/dev/null || echo Unknown)"
+    if [[ "$state" != "Registered" ]]; then
+      az provider register --namespace "$ns" >/dev/null 2>&1 && ok "registering $ns" || warn "could not register $ns"
+    fi
+  fi
+done
+
 DEPLOY_NAME="bootstrap-${ENVIRONMENT}-$(date +%Y%m%d%H%M%S)"
 if $DRY_RUN; then
   run "az deployment sub what-if --name '$DEPLOY_NAME' --location '$LOCATION' \
