@@ -46,13 +46,17 @@ several others were non-functional out of the box).
 
 ---
 
-## 📋 Remaining
+## ✅ Tail — resolved
 
-| # | Item | Notes |
-|---|------|-------|
-| R1 | **ADO platform-repo sync** | The pipeline reads templates from an *imported* ADO copy of `azure-platform-iac`; imports don't auto-sync, so platform fixes on GitHub must be pushed to the ADO copy too. Decide: scheduled mirror pipeline, GitHub service-connection repo resource, or make ADO the platform home. (Was managed manually this session.) |
-| R2 | **onboard self-hosted agent option** | Add an opt-in flag to `onboard-subscription.sh` to provision the `agent-aci` self-hosted agent for a region/env (private-endpoint deploys require it). Also have onboard set `allPipelines` authorization on the SC/env/var-groups it creates (had to do it manually). |
-| R3 | **Container Apps module** | `modules/compute/container-app.bicep` — quota-free alternative to App Service (this sub caps at 3 App Service Plans/region). Nice-to-have. |
-| R4 | **App Service Plan quota** | The personal sub allows only **3** App Service Plans per region (B1/S1 etc. shared). Fine for the platform; relevant for test sprawl. Container Apps (R3) sidesteps it. |
-| R5 | **onboard `--app-name` consistency** | Var-group `devAppName` must equal the App Service the infra creates (`<app>-app-<env>`); default aligns, an override that doesn't match fails the deploy. Document or derive it. |
-| R6 | **gitleaks binary integrity** | Consider checksum-pinning the gitleaks download instead of curl-pipe-to-tar. Low priority. |
+| # | Item | Resolution |
+|---|------|-----------|
+| R1 | ADO platform-repo sync | Added `bootstrap/sync-platform-to-ado.sh` (create+import, `--force` reimport). Long-term options (scheduled mirror / GitHub service-connection repo resource) documented in the script header. |
+| R2 | onboard auto-authorization | `onboard-subscription.sh` now grants `allPipelines` authorization to the SC, variable groups, environment, and Default queue it creates — no manual checkpoint on first run. |
+| R3 | Container Apps module | `modules/compute/container-app{,-environment}.bicep` added + cataloged (scale-to-zero, passwordless ACR pull, internal/external ingress, optional private VNet). |
+| R4 | App Service Plan quota | Documented finding (sub caps at 3 plans/region). No code action; Container Apps (R3) is the quota-free alternative. |
+| R5 | onboard `--app-name` consistency | Default already follows `<project>-app-<env>`; onboard now `warn`s if an explicit `--app-name` override breaks the convention. |
+
+## ⏸ Deferred (low priority — reasoned)
+
+- **onboard self-hosted-agent provisioning** — an opt-in `--with-agent` flag to deploy `agent-aci` from onboard. The module exists and is proven; folding it into onboard (subnet/PAT/image plumbing) is its own task. Provision via the module directly for now.
+- **R6 gitleaks checksum-pinning** — accepted as-is (curl-pipe-to-tar from the pinned `v8.21.2` GitHub release). Checksum verification is a hardening nice-to-have, not a correctness issue.
