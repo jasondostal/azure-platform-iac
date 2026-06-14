@@ -4,7 +4,7 @@ Shared Bicep platform modules — the single source of truth for Azure infrastru
 
 ## How it all fits
 
-![Azure Platform flow](docs/platform-flow.png)
+![Azure Platform flow](docs/platform-flow.svg)
 
 > Prefer words? The full narrative walkthrough — modules → repos, cookiecutter + cruft, subscription onboarding, build-once-deploy-many, and why private endpoints force self-hosted agents — is in **[docs/PLATFORM_PRIMER.md](docs/PLATFORM_PRIMER.md)**.
 
