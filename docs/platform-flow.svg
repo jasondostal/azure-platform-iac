@@ -1,0 +1,271 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="2900" viewBox="0 0 1200 2900" font-family="'Segoe UI',system-ui,-apple-system,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0e1a"/>
+      <stop offset="1" stop-color="#0c1326"/>
+    </linearGradient>
+    <linearGradient id="hdr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.5" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#fbbf24"/>
+    </linearGradient>
+    <marker id="aCyan" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#22d3ee"/></marker>
+    <marker id="aMute" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#7c8db5"/></marker>
+    <marker id="aGreen" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#34d399"/></marker>
+    <marker id="aAmber" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#fbbf24"/></marker>
+    <marker id="aRed" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f87171"/></marker>
+    <style>
+      .title{fill:#f1f5fb;font-size:46px;font-weight:800;letter-spacing:1px}
+      .sub{fill:#9fb0c8;font-size:20px;font-weight:500}
+      .sec{fill:#cdd9ec;font-size:23px;font-weight:700}
+      .secn{fill:#0a0e1a;font-size:20px;font-weight:800}
+      .ct{font-size:21px;font-weight:700}
+      .cs{fill:#9fb0c8;font-size:14.5px;font-weight:500}
+      .pill{fill:#cdd9ec;font-size:14px;font-weight:600}
+      .note{fill:#8295b3;font-size:14.5px;font-weight:500}
+      .lab{font-size:13.5px;font-weight:600}
+      .big{font-size:25px;font-weight:800}
+    </style>
+  </defs>
+
+  <rect width="1200" height="2900" fill="url(#bg)"/>
+
+  <!-- ═══════════ HEADER ═══════════ -->
+  <rect x="0" y="0" width="1200" height="6" fill="url(#hdr)"/>
+  <text x="60" y="78" class="title">AZURE PLATFORM IaC</text>
+  <text x="62" y="112" class="sub">build once · deploy many · private by default</text>
+  <text x="62" y="140" class="note">A cascading platform: one source of truth → generated repos that stay current → repeatable, secret-less subscription onboarding.</text>
+
+  <!-- ═══════════ ① THE CASCADE ═══════════ -->
+  <rect x="40" y="180" width="1120" height="520" rx="16" fill="#0f1730" stroke="#22314f" stroke-width="1.5"/>
+  <circle cx="72" cy="216" r="17" fill="#22d3ee"/><text x="72" y="223" text-anchor="middle" class="secn">1</text>
+  <text x="102" y="223" class="sec">THE CASCADE — a change flows downhill to everything that depends on it</text>
+
+  <!-- platform card -->
+  <rect x="430" y="258" width="340" height="135" rx="12" fill="#0e2a33" stroke="#22d3ee" stroke-width="2"/>
+  <text x="600" y="292" text-anchor="middle" class="ct" fill="#22d3ee">azure-platform-iac</text>
+  <text x="600" y="314" text-anchor="middle" class="cs">the source of truth</text>
+  <rect x="450" y="332" width="120" height="44" rx="8" fill="#103a45"/><text x="510" y="359" text-anchor="middle" class="pill">Modules</text>
+  <rect x="578" y="332" width="120" height="44" rx="8" fill="#103a45"/><text x="638" y="352" text-anchor="middle" class="pill">Pipeline</text><text x="638" y="368" text-anchor="middle" class="pill">Templates</text>
+  <rect x="706" y="332" width="46" height="44" rx="8" fill="#103a45"/><text x="729" y="359" text-anchor="middle" class="pill">Boot</text>
+
+  <!-- arrows split -->
+  <path d="M520,393 C520,430 330,425 330,468" fill="none" stroke="#7c8db5" stroke-width="2" marker-end="url(#aMute)"/>
+  <path d="M690,393 C690,430 880,425 880,468" fill="none" stroke="#fbbf24" stroke-width="2" marker-end="url(#aAmber)"/>
+  <text x="250" y="445" class="note">consume modules</text>
+  <text x="905" y="445" class="note">generate repos</text>
+
+  <!-- reference card -->
+  <rect x="120" y="470" width="420" height="115" rx="12" fill="#241b3d" stroke="#a78bfa" stroke-width="2"/>
+  <text x="330" y="505" text-anchor="middle" class="ct" fill="#a78bfa">azure-iac-reference</text>
+  <text x="330" y="530" text-anchor="middle" class="cs">a real app that CONSUMES the platform</text>
+  <text x="330" y="552" text-anchor="middle" class="cs">the canary · the worked example · run what-if here before merge</text>
+
+  <!-- starter card -->
+  <rect x="660" y="470" width="420" height="115" rx="12" fill="#322813" stroke="#fbbf24" stroke-width="2"/>
+  <text x="870" y="505" text-anchor="middle" class="ct" fill="#fbbf24">azure-project-starter</text>
+  <text x="870" y="530" text-anchor="middle" class="cs">a cookiecutter template that GENERATES repos</text>
+  <text x="870" y="552" text-anchor="middle" class="cs">one command → a complete, wired-up service repo</text>
+
+  <!-- starter -> new service -->
+  <path d="M870,585 L870,622" fill="none" stroke="#fbbf24" stroke-width="2" marker-end="url(#aAmber)"/>
+  <rect x="660" y="624" width="420" height="58" rx="12" fill="#0f2418" stroke="#34d399" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="870" y="650" text-anchor="middle" class="ct" fill="#34d399" font-size="19">&lt;your-new-service&gt;</text>
+  <text x="870" y="670" text-anchor="middle" class="cs">source + infra/ (consumes modules) + 2 pipelines</text>
+
+  <text x="160" y="650" class="note" font-style="italic">platform = library</text>
+  <text x="160" y="672" class="note" font-style="italic">starter = `init` for a whole service</text>
+
+  <!-- ═══════════ ② GENERATE ═══════════ -->
+  <rect x="40" y="720" width="1120" height="470" rx="16" fill="#0f1730" stroke="#3a3320" stroke-width="1.5"/>
+  <circle cx="72" cy="756" r="17" fill="#fbbf24"/><text x="72" y="763" text-anchor="middle" class="secn">2</text>
+  <text x="102" y="763" class="sec">GENERATE A REPO — cookiecutter creates, cruft keeps it current</text>
+
+  <!-- 4-step flow -->
+  <g>
+    <rect x="70" y="810" width="240" height="90" rx="11" fill="#322813" stroke="#fbbf24" stroke-width="1.6"/>
+    <text x="190" y="845" text-anchor="middle" class="ct" fill="#fbbf24" font-size="18">cookiecutter.json</text>
+    <text x="190" y="870" text-anchor="middle" class="cs">vars + defaults</text>
+    <text x="190" y="888" text-anchor="middle" class="cs">6 archetype choices</text>
+
+    <path d="M312,855 L350,855" fill="none" stroke="#fbbf24" stroke-width="2" marker-end="url(#aAmber)"/>
+    <rect x="352" y="810" width="240" height="90" rx="11" fill="#1a2238" stroke="#7c8db5" stroke-width="1.4"/>
+    <text x="472" y="840" text-anchor="middle" class="ct" fill="#cdd9ec" font-size="16">{{project_slug}}/</text>
+    <text x="472" y="864" text-anchor="middle" class="cs">template tree;</text>
+    <text x="472" y="882" text-anchor="middle" class="cs">{{ }} in names + contents</text>
+
+    <path d="M594,855 L632,855" fill="none" stroke="#7c8db5" stroke-width="2" marker-end="url(#aMute)"/>
+    <rect x="634" y="810" width="240" height="90" rx="11" fill="#1a2238" stroke="#7c8db5" stroke-width="1.4"/>
+    <text x="754" y="840" text-anchor="middle" class="ct" fill="#cdd9ec" font-size="16">post_gen hook</text>
+    <text x="754" y="864" text-anchor="middle" class="cs">prune unused archetypes ·</text>
+    <text x="754" y="882" text-anchor="middle" class="cs">write .cruft.json · git init</text>
+
+    <path d="M876,855 L914,855" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#aGreen)"/>
+    <rect x="916" y="810" width="214" height="90" rx="11" fill="#0f2418" stroke="#34d399" stroke-width="1.8"/>
+    <text x="1023" y="845" text-anchor="middle" class="ct" fill="#34d399" font-size="17">new repo</text>
+    <text x="1023" y="870" text-anchor="middle" class="cs">+ .cruft.json links</text>
+    <text x="1023" y="888" text-anchor="middle" class="cs">back to the template</text>
+  </g>
+
+  <!-- cruft loop -->
+  <rect x="160" y="960" width="320" height="78" rx="11" fill="#322813" stroke="#fbbf24" stroke-width="1.6"/>
+  <text x="320" y="992" text-anchor="middle" class="ct" fill="#fbbf24" font-size="17">platform improves the template</text>
+  <text x="320" y="1015" text-anchor="middle" class="cs">new gate · better defaults</text>
+
+  <path d="M482,999 L716,999" fill="none" stroke="#fbbf24" stroke-width="2.5" marker-end="url(#aAmber)"/>
+  <text x="600" y="989" text-anchor="middle" class="lab" fill="#fbbf24">cruft update → applies the diff as a patch</text>
+
+  <rect x="718" y="960" width="320" height="78" rx="11" fill="#0f2418" stroke="#34d399" stroke-width="1.8"/>
+  <text x="878" y="992" text-anchor="middle" class="ct" fill="#34d399" font-size="17">your repo stays current</text>
+  <text x="878" y="1015" text-anchor="middle" class="cs">like rebasing onto the latest template</text>
+
+  <rect x="70" y="1075" width="1060" height="86" rx="11" fill="#13182c" stroke="#28324f" stroke-width="1.2"/>
+  <text x="90" y="1108" class="note" font-weight="700" fill="#cdd9ec">6 archetypes, each renders the right source + build template + Azure target:</text>
+  <text x="90" y="1138" class="pill" fill="#fbbf24">dotnet-api · dotnet-web · python-function · go-web · go-desktop · node-agent</text>
+
+  <!-- ═══════════ ③ ONBOARD ═══════════ -->
+  <rect x="40" y="1210" width="1120" height="470" rx="16" fill="#0f1730" stroke="#1d3a31" stroke-width="1.5"/>
+  <circle cx="72" cy="1246" r="17" fill="#34d399"/><text x="72" y="1253" text-anchor="middle" class="secn">3</text>
+  <text x="102" y="1253" class="sec">ONBOARD A SUBSCRIPTION — one script, three planes, zero stored secrets</text>
+
+  <rect x="430" y="1290" width="340" height="74" rx="12" fill="#10261f" stroke="#34d399" stroke-width="2"/>
+  <text x="600" y="1320" text-anchor="middle" class="ct" fill="#34d399" font-size="18">onboard-subscription.sh</text>
+  <text x="600" y="1344" text-anchor="middle" class="cs">idempotent · re-run anytime</text>
+
+  <path d="M500,1364 C500,1400 230,1400 230,1438" fill="none" stroke="#22d3ee" stroke-width="2" marker-end="url(#aCyan)"/>
+  <path d="M600,1364 L600,1438" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#aGreen)"/>
+  <path d="M700,1364 C700,1400 970,1400 970,1438" fill="none" stroke="#60a5fa" stroke-width="2" marker-end="url(#aMute)"/>
+
+  <!-- plane: resource -->
+  <rect x="70" y="1440" width="330" height="160" rx="12" fill="#0e2a33" stroke="#22d3ee" stroke-width="2"/>
+  <text x="235" y="1472" text-anchor="middle" class="ct" fill="#22d3ee" font-size="18">① RESOURCE plane</text>
+  <text x="235" y="1494" text-anchor="middle" class="cs">via bootstrap/main.bicep</text>
+  <text x="235" y="1528" text-anchor="middle" class="pill">Resource Group</text>
+  <text x="235" y="1550" text-anchor="middle" class="pill">Container Registry (ACR)</text>
+  <text x="235" y="1572" text-anchor="middle" class="pill">Log Analytics · Key Vault</text>
+
+  <!-- plane: identity -->
+  <rect x="435" y="1440" width="330" height="160" rx="12" fill="#10261f" stroke="#34d399" stroke-width="2"/>
+  <text x="600" y="1472" text-anchor="middle" class="ct" fill="#34d399" font-size="18">② IDENTITY plane</text>
+  <text x="600" y="1494" text-anchor="middle" class="cs">via az CLI (not Bicep)</text>
+  <text x="600" y="1528" text-anchor="middle" class="pill">Entra app registration</text>
+  <text x="600" y="1550" text-anchor="middle" class="pill" fill="#34d399">Workload Identity Federation</text>
+  <text x="600" y="1572" text-anchor="middle" class="pill" fill="#34d399">OIDC — no stored secret</text>
+
+  <!-- plane: ado -->
+  <rect x="800" y="1440" width="330" height="160" rx="12" fill="#142544" stroke="#60a5fa" stroke-width="2"/>
+  <text x="965" y="1472" text-anchor="middle" class="ct" fill="#60a5fa" font-size="18">③ ADO plane</text>
+  <text x="965" y="1494" text-anchor="middle" class="cs">via az devops CLI</text>
+  <text x="965" y="1528" text-anchor="middle" class="pill">Service connection (WIF)</text>
+  <text x="965" y="1550" text-anchor="middle" class="pill">Variable groups</text>
+  <text x="965" y="1572" text-anchor="middle" class="pill">Environment (+ approvals)</text>
+
+  <text x="600" y="1648" text-anchor="middle" class="note">Three planes need three tools — which is why onboarding is a script that <tspan fill="#cdd9ec" font-weight="700">calls</tspan> Bicep, not Bicep alone. WIF = no SP password to rotate or leak.</text>
+
+  <!-- ═══════════ ④ BUILD ONCE DEPLOY MANY ═══════════ -->
+  <rect x="40" y="1700" width="1120" height="460" rx="16" fill="#0f1730" stroke="#22314f" stroke-width="1.5"/>
+  <circle cx="72" cy="1736" r="17" fill="#60a5fa"/><text x="72" y="1743" text-anchor="middle" class="secn">4</text>
+  <text x="102" y="1743" class="sec">SHIP CODE — build once, deploy many, ONE branch (main)</text>
+
+  <!-- pipeline lane -->
+  <text x="80" y="1800" class="cs">merge → main</text>
+  <g>
+    <rect x="70" y="1812" width="120" height="64" rx="10" fill="#0e2a33" stroke="#22d3ee" stroke-width="1.8"/>
+    <text x="130" y="1842" text-anchor="middle" class="ct" fill="#22d3ee" font-size="17">Build</text>
+    <text x="130" y="1862" text-anchor="middle" class="cs">artifact ×1</text>
+
+    <path d="M192,1844 L222,1844" stroke="#7c8db5" stroke-width="2" marker-end="url(#aMute)"/>
+    <rect x="224" y="1812" width="120" height="64" rx="10" fill="#0e2a33" stroke="#22d3ee" stroke-width="1.8"/>
+    <text x="284" y="1842" text-anchor="middle" class="ct" fill="#22d3ee" font-size="17">Scan</text>
+    <text x="284" y="1862" text-anchor="middle" class="cs">shared gates</text>
+
+    <path d="M346,1844 L376,1844" stroke="#34d399" stroke-width="2" marker-end="url(#aGreen)"/>
+    <rect x="378" y="1812" width="120" height="64" rx="10" fill="#10261f" stroke="#34d399" stroke-width="1.8"/>
+    <text x="438" y="1842" text-anchor="middle" class="ct" fill="#34d399" font-size="17">dev</text>
+    <text x="438" y="1862" text-anchor="middle" class="cs">auto</text>
+
+    <path d="M500,1844 L530,1844" stroke="#60a5fa" stroke-width="2" marker-end="url(#aMute)"/>
+    <rect x="532" y="1812" width="120" height="64" rx="10" fill="#142544" stroke="#60a5fa" stroke-width="1.8"/>
+    <text x="592" y="1842" text-anchor="middle" class="ct" fill="#60a5fa" font-size="17">qa ✋</text>
+    <text x="592" y="1862" text-anchor="middle" class="cs">approval</text>
+
+    <path d="M654,1844 L684,1844" stroke="#60a5fa" stroke-width="2" marker-end="url(#aMute)"/>
+    <rect x="686" y="1812" width="120" height="64" rx="10" fill="#142544" stroke="#60a5fa" stroke-width="1.8"/>
+    <text x="746" y="1842" text-anchor="middle" class="ct" fill="#60a5fa" font-size="17">stage ✋</text>
+    <text x="746" y="1862" text-anchor="middle" class="cs">approval</text>
+
+    <path d="M808,1844 L838,1844" stroke="#60a5fa" stroke-width="2" marker-end="url(#aMute)"/>
+    <rect x="840" y="1812" width="130" height="64" rx="10" fill="#142544" stroke="#60a5fa" stroke-width="1.8"/>
+    <text x="905" y="1842" text-anchor="middle" class="ct" fill="#60a5fa" font-size="17">prod ✋</text>
+    <text x="905" y="1862" text-anchor="middle" class="cs">VP approval</text>
+  </g>
+  <path d="M130,1888 C130,1925 905,1925 905,1890" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#aAmber)"/>
+  <text x="517" y="1948" text-anchor="middle" class="lab" fill="#fbbf24">the SAME immutable artifact is promoted the whole way — no rebuild-per-env, no drift</text>
+
+  <rect x="70" y="1985" width="520" height="120" rx="11" fill="#13182c" stroke="#28324f" stroke-width="1.2"/>
+  <text x="90" y="2017" class="ct" fill="#cdd9ec" font-size="17">Build once</text>
+  <text x="90" y="2044" class="note">The zip/image that passes dev is byte-for-byte</text>
+  <text x="90" y="2066" class="note">what reaches prod. Drift becomes impossible.</text>
+  <text x="90" y="2092" class="note">Infra promotes the same way — gated by `what-if`.</text>
+
+  <rect x="610" y="1985" width="520" height="120" rx="11" fill="#13182c" stroke="#28324f" stroke-width="1.2"/>
+  <text x="630" y="2017" class="ct" fill="#cdd9ec" font-size="17">Gated by approvals, not branches</text>
+  <text x="630" y="2044" class="note">Each stage dependsOn the last + targets an ADO</text>
+  <text x="630" y="2066" class="note">Environment. Two audit surfaces: who merged (git)</text>
+  <text x="630" y="2092" class="note">and who approved each promotion (ADO).</text>
+
+  <!-- ═══════════ ⑤ PRIVATE + SELF-HOSTED AGENT ═══════════ -->
+  <rect x="40" y="2180" width="1120" height="540" rx="16" fill="#0f1730" stroke="#3a1f28" stroke-width="1.5"/>
+  <circle cx="72" cy="2216" r="17" fill="#f87171"/><text x="72" y="2223" text-anchor="middle" class="secn">5</text>
+  <text x="102" y="2223" class="sec">PRIVATE BY DEFAULT → SELF-HOSTED AGENTS (the other half of the story)</text>
+
+  <!-- Microsoft-hosted agent (outside) -->
+  <rect x="70" y="2330" width="250" height="150" rx="12" fill="#3a1620" stroke="#f87171" stroke-width="2"/>
+  <text x="195" y="2364" text-anchor="middle" class="ct" fill="#f87171" font-size="17">Microsoft-hosted</text>
+  <text x="195" y="2386" text-anchor="middle" class="ct" fill="#f87171" font-size="17">agent</text>
+  <text x="195" y="2416" text-anchor="middle" class="cs">runs on Microsoft's</text>
+  <text x="195" y="2436" text-anchor="middle" class="cs">network — OUTSIDE</text>
+  <text x="195" y="2456" text-anchor="middle" class="cs">your tenant</text>
+
+  <!-- blocked arrow -->
+  <path d="M322,2405 L412,2405" fill="none" stroke="#f87171" stroke-width="2.5" stroke-dasharray="7 5"/>
+  <g stroke="#f87171" stroke-width="4"><path d="M428,2392 L452,2418"/><path d="M452,2392 L428,2418"/></g>
+  <text x="370" y="2390" text-anchor="middle" class="lab" fill="#f87171">can't route ✗</text>
+
+  <!-- VNet boundary -->
+  <rect x="470" y="2290" width="660" height="380" rx="16" fill="#0c2026" stroke="#22d3ee" stroke-width="2.5" stroke-dasharray="9 6"/>
+  <text x="492" y="2322" class="ct" fill="#22d3ee" font-size="18">VNet — private</text>
+
+  <!-- self-hosted agent inside -->
+  <rect x="500" y="2360" width="230" height="150" rx="12" fill="#10261f" stroke="#34d399" stroke-width="2"/>
+  <text x="615" y="2394" text-anchor="middle" class="ct" fill="#34d399" font-size="17">self-hosted agent</text>
+  <text x="615" y="2416" text-anchor="middle" class="cs">on VNet-injected ACI</text>
+  <text x="615" y="2444" text-anchor="middle" class="cs">modules/devops/</text>
+  <text x="615" y="2464" text-anchor="middle" class="cs">agent-aci.bicep</text>
+  <text x="615" y="2490" text-anchor="middle" class="cs">passwordless ACR pull</text>
+
+  <!-- private resources -->
+  <rect x="800" y="2360" width="300" height="250" rx="12" fill="#0e2030" stroke="#60a5fa" stroke-width="2"/>
+  <text x="950" y="2392" text-anchor="middle" class="ct" fill="#60a5fa" font-size="17">private resources</text>
+  <text x="950" y="2414" text-anchor="middle" class="cs">no public endpoint</text>
+  <rect x="824" y="2436" width="252" height="44" rx="8" fill="#142544"/><text x="950" y="2463" text-anchor="middle" class="pill">App Service (public access OFF)</text>
+  <rect x="824" y="2488" width="252" height="44" rx="8" fill="#142544"/><text x="950" y="2515" text-anchor="middle" class="pill">Azure SQL (Entra-only)</text>
+  <rect x="824" y="2540" width="252" height="44" rx="8" fill="#142544"/><text x="950" y="2567" text-anchor="middle" class="pill">Key Vault (RBAC)</text>
+
+  <path d="M732,2455 L796,2455" fill="none" stroke="#34d399" stroke-width="2.5" marker-end="url(#aGreen)"/>
+  <text x="764" y="2442" text-anchor="middle" class="lab" fill="#34d399">deploys ✓</text>
+
+  <text x="492" y="2648" class="note">Microsoft-hosted agents physically can't reach a private endpoint. The in-VNet self-hosted agent is the <tspan fill="#cdd9ec" font-weight="700">only</tspan> thing that can deploy here.</text>
+
+  <!-- ═══════════ FOOTER ═══════════ -->
+  <line x1="40" y1="2762" x2="1160" y2="2762" stroke="#28324f" stroke-width="1.5"/>
+  <g font-size="14" font-weight="600">
+    <rect x="60" y="2790" width="16" height="16" rx="3" fill="#22d3ee"/><text x="84" y="2803" fill="#9fb0c8">platform-iac</text>
+    <rect x="210" y="2790" width="16" height="16" rx="3" fill="#a78bfa"/><text x="234" y="2803" fill="#9fb0c8">reference app</text>
+    <rect x="375" y="2790" width="16" height="16" rx="3" fill="#fbbf24"/><text x="399" y="2803" fill="#9fb0c8">starter</text>
+    <rect x="480" y="2790" width="16" height="16" rx="3" fill="#34d399"/><text x="504" y="2803" fill="#9fb0c8">identity / agent</text>
+    <rect x="650" y="2790" width="16" height="16" rx="3" fill="#60a5fa"/><text x="674" y="2803" fill="#9fb0c8">ADO / runtime</text>
+    <rect x="810" y="2790" width="16" height="16" rx="3" fill="#f87171"/><text x="834" y="2803" fill="#9fb0c8">can't reach private</text>
+  </g>
+  <text x="1140" y="2803" text-anchor="end" class="note" font-style="italic">proven end-to-end · 2026-06-13</text>
+</svg>

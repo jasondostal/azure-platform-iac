@@ -2,6 +2,12 @@
 
 Shared Bicep platform modules — the single source of truth for Azure infrastructure patterns. This is the **platform repo**: app repos consume these modules; a change here propagates to all consumers on their next deployment.
 
+## How it all fits
+
+![Azure Platform flow](docs/platform-flow.png)
+
+> Prefer words? The full narrative walkthrough — modules → repos, cookiecutter + cruft, subscription onboarding, build-once-deploy-many, and why private endpoints force self-hosted agents — is in **[docs/PLATFORM_PRIMER.md](docs/PLATFORM_PRIMER.md)**.
+
 ## Related Repos
 
 | Repo | Purpose |
