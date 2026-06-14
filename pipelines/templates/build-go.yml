@@ -48,7 +48,9 @@ steps:
 
   - ${{ if eq(parameters.targetType, 'web') }}:
     - script: |
-        go build -ldflags="-s -w" -o ${{ parameters.binaryName }} ${{ parameters.mainPackage }}
+        # CGO_ENABLED=0 produces a fully static binary — required for App Service Linux
+        # containers which may have a different glibc version than the build agent.
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ${{ parameters.binaryName }} ${{ parameters.mainPackage }}
       displayName: 'Build (${{ parameters.binaryName }})'
 
     - script: go test ./...
@@ -57,9 +59,13 @@ steps:
 
     - ${{ if eq(parameters.includeSPA, true) }}:
       - script: |
-          mkdir -p $(Build.ArtifactStagingDirectory)/app
+          mkdir -p $(Build.ArtifactStagingDirectory)/app/static
           cp ${{ parameters.binaryName }} $(Build.ArtifactStagingDirectory)/app/
-          cp -r ${{ parameters.spaDir }}/* $(Build.ArtifactStagingDirectory)/app/static/ 2>/dev/null || true
+          if [ -d "${{ parameters.spaDir }}" ]; then
+            cp -r ${{ parameters.spaDir }}/. $(Build.ArtifactStagingDirectory)/app/static/
+          else
+            echo "##[warning]SPA directory '${{ parameters.spaDir }}' not found — skipping copy"
+          fi
         displayName: 'Stage binary + SPA'
     - ${{ if eq(parameters.includeSPA, false) }}:
       - script: |

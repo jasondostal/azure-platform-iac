@@ -28,25 +28,55 @@ parameters:
     default: 'drop'
 
 steps:
+  # Try UsePythonVersion first (works on hosted agents and self-hosted with toolchain).
+  # On self-hosted agents without a Python toolcache, this may fail — continueOnError
+  # allows the fallback step below to install Python via apt.
   - task: UsePythonVersion@0
     displayName: 'Use Python ${{ parameters.pythonVersion }}'
+    continueOnError: true
     inputs:
       versionSpec: '${{ parameters.pythonVersion }}'
 
+  # Fallback: install python3 via apt if it's not on PATH (self-hosted agent without toolchain).
+  # Agent may run as root (no sudo) or as a non-root user with sudo. Try both.
   - script: |
-      python -m pip install --upgrade pip
+      set -e
+      if command -v python3 &>/dev/null; then
+        echo "python3 found at $(which python3): $(python3 --version)"
+      else
+        echo "python3 not found — installing via apt"
+        APT_CMD="apt-get"
+        if command -v sudo &>/dev/null; then APT_CMD="sudo apt-get"; fi
+        $APT_CMD update -qq
+        $APT_CMD install -y python3 python3-pip python3-venv
+        echo "Installed: $(python3 --version)"
+      fi
+    displayName: 'Ensure python3 available (fallback install)'
+    continueOnError: false
+
+  - script: |
+      # Use a venv to avoid PEP 668 "externally managed environment" errors
+      # on Debian/Ubuntu 24.04+ where pip cannot install into the system Python.
+      python3 -m venv --system-site-packages /tmp/build-venv || python3 -m venv /tmp/build-venv
+      . /tmp/build-venv/bin/activate
+      pip install --upgrade pip
       pip install -r ${{ parameters.requirementsFile }}
       pip install pytest
+      # Make venv pip the default pip for subsequent steps
+      echo "##vso[task.setvariable variable=PATH]/tmp/build-venv/bin:$PATH"
     displayName: 'Install dependencies'
 
   - script: ${{ parameters.testCommand }}
     displayName: 'Run tests'
     continueOnError: true
     workingDirectory: ${{ parameters.sourceDir }}
+    env:
+      PATH: /tmp/build-venv/bin:$(PATH)
 
   - script: |
+      . /tmp/build-venv/bin/activate
       cd ${{ parameters.sourceDir }}
-      pip install -r ${{ parameters.requirementsFile }} -t .python_packages/lib/python3.12/site-packages
+      pip install -r ${{ parameters.requirementsFile }} -t .python_packages/lib/site-packages
     displayName: 'Install deps to local packages dir'
     condition: and(succeeded(), ne(variables['isFunctionApp'], 'true'))
 
