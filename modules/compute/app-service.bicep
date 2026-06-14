@@ -52,6 +52,9 @@ param vnetSubnetId string = ''
 @description('Whether to enable managed identity (SystemAssigned)')
 param enableManagedIdentity bool = true
 
+@description('Optional startup command, e.g. "node server.js". Empty = App Service default/auto-detect')
+param appCommandLine string = ''
+
 @description('Additional tags')
 param tags object = {}
 
@@ -92,6 +95,7 @@ resource app 'Microsoft.Web/sites@2024-04-01' = {
       alwaysOn: alwaysOn
       ftpsState: ftpsDisabled ? 'Disabled' : 'AllAllowed'
       minTlsVersion: minTlsVersion
+      appCommandLine: appCommandLine
       vnetRouteAllEnabled: enableVnetIntegration
       appSettings: allSettingsArray
     }

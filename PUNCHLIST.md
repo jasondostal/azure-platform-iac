@@ -50,3 +50,4 @@ one of these was a blocker for a generated repo:
 | 11 | **Container Apps module** (`modules/compute/container-app.bicep`) — quota-free alternative to App Service; nice-to-have. |
 | 12 | `build-node.yml` end-to-end verification — confirm the deployed artifact actually runs on App Service (closes the loop once the playground deploy is green). |
 | 13 | Consider whether `gitleaks` should pin/verify the binary (checksum) rather than curl-pipe-to-tar. |
+| 14 | **App name consistency**: the var-group `devAppName` (set by `onboard --app-name`) MUST equal the App Service the infra creates (`<appName>-app-<env>`). The onboard default aligns; an `--app-name` override that doesn't match the infra convention fails the deploy with "Resource doesn't exist." Document, and/or have onboard derive it from the same convention rather than accept a free-form override. |
