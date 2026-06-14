@@ -48,15 +48,18 @@ steps:
     displayName: 'Test'
     continueOnError: true
 
-  # Zip the build output + any server entrypoint for App Service
+  # Stage the deployable app for App Service. Preserve the build output AS A
+  # DIRECTORY (e.g. build/) — adapter-node's server.js imports './build/handler.js',
+  # so flattening build/* to the root would break that import.
   - script: |
       mkdir -p $(Build.ArtifactStagingDirectory)/app
-      cp -r ${{ parameters.buildOutput }}/* $(Build.ArtifactStagingDirectory)/app/ 2>/dev/null || true
+      cp -r ${{ parameters.buildOutput }} $(Build.ArtifactStagingDirectory)/app/ 2>/dev/null || true
       # Include a server.js entrypoint if one exists at root
       cp server.js $(Build.ArtifactStagingDirectory)/app/ 2>/dev/null || true
-      # Include package.json for production deps
+      # Include package.json/lock for the startup script + any production deps
       cp package.json $(Build.ArtifactStagingDirectory)/app/ 2>/dev/null || true
       cp package-lock.json $(Build.ArtifactStagingDirectory)/app/ 2>/dev/null || true
+      # adapter-node bundles its deps into build/, so prod install is best-effort
       cd $(Build.ArtifactStagingDirectory)/app && npm ci --omit=dev 2>/dev/null || true
     displayName: 'Stage app'
 

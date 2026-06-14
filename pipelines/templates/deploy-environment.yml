@@ -69,6 +69,13 @@ parameters:
   - name: location
     type: string
     default: 'eastus'
+  - name: pool
+    type: object
+    # Default: Microsoft-hosted. Override with { name: '<self-hosted-pool>' } to
+    # run on a VNet-integrated self-hosted agent — REQUIRED when deploying into
+    # private-endpoint resources (Microsoft-hosted agents can't reach them).
+    default:
+      vmImage: 'ubuntu-latest'
 
 stages:
   - stage: Deploy_${{ parameters.environment }}
@@ -82,8 +89,7 @@ stages:
       - deployment: Deploy_${{ parameters.environment }}
         displayName: 'Deploy ${{ parameters.appName }} → ${{ parameters.environment }}'
         environment: ${{ coalesce(parameters.adoEnvironment, parameters.environment) }}
-        pool:
-          vmImage: 'ubuntu-latest'
+        pool: ${{ parameters.pool }}
         strategy:
           runOnce:
             deploy:
