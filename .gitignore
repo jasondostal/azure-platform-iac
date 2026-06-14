@@ -4,6 +4,9 @@
 # Throwaway E2E test scaffolding (kept locally for teardown reference)
 .e2e-*.bicep
 
+# Local-only working docs (uncensored — Fox specifics, real IDs; never publish)
+docs/_local/
+
 # OS files
 .DS_Store
 Thumbs.db
