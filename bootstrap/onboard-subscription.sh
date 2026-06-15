@@ -16,9 +16,14 @@
 # via OIDC. For a regulated shop, "zero standing secrets for deploy identities"
 # is the audit story you want.
 #
-# ONE RUN = ONE SUBSCRIPTION = ONE ENVIRONMENT. Run it once per env you stand up
-# (each env is typically its own subscription). The shared variable group is
-# created on first run and updated on later ones.
+# ONE RUN = ONE ENVIRONMENT. Run it once per env you stand up. Two org shapes:
+#   • Sub-per-env  → pass a different --subscription each run (--rbac-scope sub).
+#   • One sub, RG-per-env (e.g. Fox) → pass the SAME --subscription each run with
+#     --rbac-scope rg. Each run pre-creates rg-<project>-<env> and scopes that
+#     env's deploy identity + service connection to it — so the dev pipeline
+#     can't reach another env. The shared plumbing (ACR, Log Analytics, platform
+#     Key Vault) is env-invariant, so it's created once and reused on later runs.
+# The shared variable group is created on first run and updated on later ones.
 #
 # ── Prerequisites ─────────────────────────────────────────────────────────────
 #   az login                       (a user/identity that can: create RGs +
@@ -37,12 +42,19 @@
 #       --project contoso \
 #       [--location eastus] \
 #       [--app-name contoso-app-dev] \
+#       [--rbac-scope sub|rg] \
+#       [--app-resource-group rg-contoso-dev] \
 #       [--dry-run]
 #
-#   --project   logical platform/app name → names everything (vg-<project>-*,
-#               sc-<project>-<env>, the app reg, the ADO environment).
-#   --app-name  the App Service name this env deploys to (stored in the env's
-#               variable group as <env>AppName). Defaults to <project>-app-<env>.
+#   --project    logical platform/app name → names everything (vg-<project>-*,
+#                sc-<project>-<env>, the app reg, the ADO environment).
+#   --app-name   the App Service name this env deploys to (stored in the env's
+#                variable group as <env>AppName). Defaults to <project>-app-<env>.
+#   --rbac-scope sub (default) = identity + service connection span the whole
+#                subscription. rg = least privilege: pre-create the env's RG and
+#                scope identity + service connection to it (single-sub orgs).
+#   --app-resource-group  rg mode only: the env's RG. Default rg-<project>-<env>;
+#                must match what the app's infra deploys into.
 # ══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -50,6 +62,8 @@ set -euo pipefail
 LOCATION="eastus"
 DRY_RUN=false
 APP_NAME=""
+RBAC_SCOPE="sub"          # sub | rg  — see --rbac-scope
+APP_RESOURCE_GROUP=""     # rg mode: the env's app RG (default rg-<project>-<env>)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Parse args ────────────────────────────────────────────────────────────────
@@ -62,6 +76,8 @@ while [[ $# -gt 0 ]]; do
     --project)      PROJECT="$2"; shift 2 ;;
     --location)     LOCATION="$2"; shift 2 ;;
     --app-name)     APP_NAME="$2"; APP_NAME_EXPLICIT=true; shift 2 ;;
+    --rbac-scope)   RBAC_SCOPE="$2"; shift 2 ;;
+    --app-resource-group) APP_RESOURCE_GROUP="$2"; shift 2 ;;
     --dry-run)      DRY_RUN=true; shift ;;
     *) echo "✗ unknown arg: $1" >&2; exit 1 ;;
   esac
@@ -74,6 +90,21 @@ done
 : "${PROJECT:?--project is required}"
 # Convention: App Service names follow <project>-app-<env> — must match infra.
 APP_NAME="${APP_NAME:-${PROJECT}-app-${ENVIRONMENT}}"
+
+# RBAC scope: how far the deploy identity + service connection can reach.
+#   sub — Contributor/UAA on the whole subscription, service connection
+#         scopeLevel=Subscription. The "move fast" default; in a single-sub org
+#         every env's identity can deploy ANYWHERE in the sub (no isolation).
+#   rg  — Contributor/UAA on ONLY this env's resource group, service connection
+#         scopeLevel=ResourceGroup. Least privilege per env in one subscription:
+#         the dev pipeline can't reach another env. Infra pre-creates the RG here
+#         (an RG-scoped identity cannot create its own RG — a sub-level write).
+case "$RBAC_SCOPE" in
+  sub|rg) ;;
+  *) echo "✗ --rbac-scope must be 'sub' or 'rg' (got '$RBAC_SCOPE')" >&2; exit 1 ;;
+esac
+# The env's app RG — must match what the app's infra deploys into (rg-<project>-<env>).
+APP_RESOURCE_GROUP="${APP_RESOURCE_GROUP:-rg-${PROJECT}-${ENVIRONMENT}}"
 
 APP_REG_NAME="${PROJECT}-ado-${ENVIRONMENT}"
 SERVICE_CONNECTION="sc-${PROJECT}-${ENVIRONMENT}"
@@ -139,6 +170,7 @@ cat <<BANNER
    ADO org/project: ${ADO_ORG} / ${ADO_PROJECT}
    app reg        : ${APP_REG_NAME}   (WIF — no secret)
    service conn   : ${SERVICE_CONNECTION}
+   rbac scope     : ${RBAC_SCOPE}$( [[ "$RBAC_SCOPE" == "rg" ]] && echo "  → ${APP_RESOURCE_GROUP} (least privilege)" || echo "  → whole subscription" )
    variable groups: ${VG_SHARED}, ${VG_ENV}
    ADO env        : ${ADO_ENVIRONMENT}
    dry-run        : ${DRY_RUN}
@@ -214,17 +246,35 @@ else
   ok "service principal present"
 fi
 
+# In rg mode, infra pre-creates the env's app RG: an RG-scoped deploy identity
+# cannot create its own resource group (that's a subscription-level write). The
+# app's infra then deploys INTO this RG (targetScope='resourceGroup'), rather
+# than creating it. Idempotent.
+if [[ "$RBAC_SCOPE" == "rg" ]]; then
+  if $DRY_RUN; then
+    run "az group create --name '$APP_RESOURCE_GROUP' --location '$LOCATION'"
+    RBAC_SCOPE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${APP_RESOURCE_GROUP}"
+  else
+    az group create --name "$APP_RESOURCE_GROUP" --location "$LOCATION" \
+      --tags managedBy=azure-platform-iac environment="$ENVIRONMENT" project="$PROJECT" \
+      --only-show-errors >/dev/null && ok "pre-created app RG $APP_RESOURCE_GROUP"
+    RBAC_SCOPE_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${APP_RESOURCE_GROUP}"
+  fi
+else
+  RBAC_SCOPE_ID="/subscriptions/${SUBSCRIPTION_ID}"
+fi
+
 # RBAC: Contributor (deploy resources) + User Access Administrator (so app
-# deployments can create their own role assignments — Foundry/Cosmos data-plane
-# RBAC, etc.). Both scoped to THIS subscription only. Idempotent.
-SUB_SCOPE="/subscriptions/${SUBSCRIPTION_ID}"
+# deployments can create their own role assignments WITHIN scope — Cosmos/SQL
+# MI data-plane RBAC, etc.). Scoped per --rbac-scope: the whole sub, or just the
+# env's RG (least privilege — the dev pipeline can't touch another env). Idempotent.
 for ROLE in "Contributor" "User Access Administrator"; do
   if $DRY_RUN; then
-    run "az role assignment create --assignee '$APP_ID' --role '$ROLE' --scope '$SUB_SCOPE'"
+    run "az role assignment create --assignee '$APP_ID' --role '$ROLE' --scope '$RBAC_SCOPE_ID'"
   else
-    az role assignment create --assignee "$APP_ID" --role "$ROLE" --scope "$SUB_SCOPE" \
+    az role assignment create --assignee "$APP_ID" --role "$ROLE" --scope "$RBAC_SCOPE_ID" \
       --only-show-errors >/dev/null 2>&1 || true
-    ok "role ensured: $ROLE @ subscription"
+    ok "role ensured: $ROLE @ ${RBAC_SCOPE} scope"
   fi
 done
 
@@ -238,6 +288,16 @@ ADO_PROJECT_ID="$(az devops project show "${ADO_ARGS[@]}" --project "$ADO_PROJEC
 # ── 3a. Service connection (Workload Identity Federation, manual) ─────────────
 EP_ID="$(az devops service-endpoint list "${ADOP_ARGS[@]}" --query "[?name=='$SERVICE_CONNECTION'].id | [0]" -o tsv 2>/dev/null || true)"
 if [[ -z "$EP_ID" ]]; then
+  # Scope the service connection to match the RBAC grant: a ResourceGroup-scoped
+  # connection can only target $APP_RESOURCE_GROUP, so a pipeline using it
+  # physically cannot deploy into another env's RG.
+  if [[ "$RBAC_SCOPE" == "rg" ]]; then
+    EP_SCOPE_LEVEL="ResourceGroup"
+    EP_RG_LINE="\"resourceGroupName\": \"${APP_RESOURCE_GROUP}\","
+  else
+    EP_SCOPE_LEVEL="Subscription"
+    EP_RG_LINE=""
+  fi
   EP_CONFIG="$(mktemp)"
   cat > "$EP_CONFIG" <<JSON
 {
@@ -252,7 +312,8 @@ if [[ -z "$EP_ID" ]]; then
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "subscriptionName": "${ENVIRONMENT}",
     "environment": "AzureCloud",
-    "scopeLevel": "Subscription",
+    ${EP_RG_LINE}
+    "scopeLevel": "${EP_SCOPE_LEVEL}",
     "creationMode": "Manual"
   },
   "serviceEndpointProjectReferences": [
@@ -384,16 +445,25 @@ else
   fi
 fi
 
+RG_MODE_NOTE=""
+if [[ "$RBAC_SCOPE" == "rg" ]]; then
+  RG_MODE_NOTE="
+   • rg-scope: the deploy identity is Contributor + UAA on ${APP_RESOURCE_GROUP}
+     ONLY. If this app uses the self-hosted ACI agent, its AcrPull on the SHARED
+     ACR is a cross-RG grant the RG-scoped identity can't make — infra grants it
+     (or pre-creates the agent pull identity). See azure-ref-webapp-sql."
+fi
+
 cat <<DONE
 
 ══════════════════════════════════════════════════════════════════════════════
- ✓ ${PROJECT} / ${ENVIRONMENT} onboarded.
+ ✓ ${PROJECT} / ${ENVIRONMENT} onboarded  (rbac-scope: ${RBAC_SCOPE}).
 
  Still MANUAL (by design — these are human-approval controls, not plumbing):
    • Add approval checks on ADO environment '${ADO_ENVIRONMENT}'
      (qa = QA lead, stage = tech lead, prod = VP + business-hours).
    • Link KeyVault-backed secrets (sqlAdminPassword, etc.) into '${VG_ENV}'
-     if this app uses them, or leave passwordless (Entra-only SQL) and skip.
+     if this app uses them, or leave passwordless (Entra-only SQL) and skip.${RG_MODE_NOTE}
 
  The deploy identity uses Workload Identity Federation — there is NO secret to
  rotate. Re-run this script any time; it is idempotent.

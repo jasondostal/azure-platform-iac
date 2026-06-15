@@ -57,15 +57,23 @@ resource resourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   }
 }
 
+// ── Shared platform plumbing (env-INVARIANT names) ──────────────────────────
+// These are the genuinely sub-wide resources: ONE ACR, ONE Log Analytics, ONE
+// platform Key Vault per subscription, shared by every environment. Names omit
+// ${environment} so re-running the bootstrap per env is idempotent against the
+// SAME resources (no per-env duplicates). In a single-subscription / RG-per-env
+// org (Fox), this is what you want; in a sub-per-env org each sub gets its own
+// set anyway. The `environment` param now only drives tags.
+
 // ── Log Analytics Workspace (nested module — RG-scoped) ─────────────────────
 
 module logAnalytics 'log-analytics.bicep' = {
   name: 'deploy-log-analytics'
   scope: resourceGroup
   params: {
-    name: '${platformName}-log-${environment}'
+    name: '${platformName}-log'
     location: location
-    retentionDays: (environment == 'prod' ? 90 : 30)
+    retentionDays: 90
   }
 }
 
@@ -75,22 +83,24 @@ module acr 'acr.bicep' = {
   name: 'deploy-acr'
   scope: resourceGroup
   params: {
-    name: replace('${platformName}acr${environment}${uniq}', '-', '')
+    name: replace('${platformName}acr${uniq}', '-', '')
     location: location
-    sku: (environment == 'prod' ? 'Standard' : 'Basic')
+    sku: 'Standard'
   }
 }
 
-// ── Key Vault ───────────────────────────────────────────────────────────────
+// ── Key Vault (shared platform secrets) ─────────────────────────────────────
+// Purge protection OFF by default so test/demo subs can be torn down cleanly.
+// Turn it on for a real prod platform subscription.
 
 module keyVault '../modules/security/key-vault.bicep' = {
-  name: '${platformName}-kv-${environment}'
+  name: '${platformName}-kv'
   scope: resourceGroup
   params: {
-    name: '${platformName}-kv-${environment}-${uniq}'
+    name: '${platformName}-kv-${uniq}'
     location: location
     tenantId: tenantId
-    enablePurgeProtection: (environment == 'prod')
+    enablePurgeProtection: false
     environment: environment
   }
 }
