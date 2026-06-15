@@ -393,6 +393,77 @@ upsert_varset() {  # upsert_varset <group-name> KEY=VAL [KEY=VAL ...]
   LAST_VARGROUP_ID="$gid"
 }
 
+# ── 3f (#6). Sub-scoped INFRA service connection (rg mode only) ───────────────
+# The two-layer infra-pipeline deploys the infra layer (RG + VNet + agent +
+# cross-RG ACR grant) on a SUBSCRIPTION-scoped connection — work the RG-scoped
+# app identity can't do. This provisions ONE infra identity per subscription
+# (shared across envs), written to vg-<project>-shared as infraServiceConnection.
+# Idempotent; mirrors the per-env identity flow above.
+provision_infra_service_connection() {
+  local areg="${PROJECT}-ado-infra" sc="sc-${PROJECT}-infra"
+  log "Plane 3f — Infra identity: subscription-scoped service connection ($sc)"
+
+  local app_id
+  app_id="$(az ad app list --display-name "$areg" --query '[0].appId' -o tsv 2>/dev/null || true)"
+  if [[ -z "$app_id" ]]; then
+    if $DRY_RUN; then app_id="<dry-run-infra-appid>"; run "az ad app create --display-name '$areg' --sign-in-audience AzureADMyOrg"
+    else app_id="$(az ad app create --display-name "$areg" --sign-in-audience AzureADMyOrg --query appId -o tsv)"; fi
+    ok "created infra app registration ($app_id)"
+  else ok "infra app registration exists ($app_id)"; fi
+  if ! $DRY_RUN; then
+    az ad sp list --filter "appId eq '$app_id'" --query '[0].id' -o tsv 2>/dev/null | grep -q . \
+      || az ad sp create --id "$app_id" >/dev/null 2>&1 || true
+  fi
+
+  # Sub-scoped Contributor + UAA (infra needs to create RGs, networking, grants).
+  local role
+  for role in "Contributor" "User Access Administrator"; do
+    if $DRY_RUN; then run "az role assignment create --assignee '$app_id' --role '$role' --scope '/subscriptions/${SUBSCRIPTION_ID}'"
+    else az role assignment create --assignee "$app_id" --role "$role" --scope "/subscriptions/${SUBSCRIPTION_ID}" --only-show-errors >/dev/null 2>&1 || true; ok "infra role ensured: $role @ subscription"; fi
+  done
+
+  # Service connection (scopeLevel Subscription).
+  local ep_id
+  ep_id="$(az devops service-endpoint list "${ADOP_ARGS[@]}" --query "[?name=='$sc'].id | [0]" -o tsv 2>/dev/null || true)"
+  if [[ -z "$ep_id" ]]; then
+    local cfg; cfg="$(mktemp)"
+    cat > "$cfg" <<JSON
+{ "name": "${sc}", "type": "azurerm", "url": "https://management.azure.com/",
+  "authorization": { "scheme": "WorkloadIdentityFederation", "parameters": { "tenantid": "${TENANT_ID}", "serviceprincipalid": "${app_id}" } },
+  "data": { "subscriptionId": "${SUBSCRIPTION_ID}", "subscriptionName": "infra", "environment": "AzureCloud", "scopeLevel": "Subscription", "creationMode": "Manual" },
+  "serviceEndpointProjectReferences": [ { "projectReference": { "id": "${ADO_PROJECT_ID}", "name": "${ADO_PROJECT}" }, "name": "${sc}" } ] }
+JSON
+    if $DRY_RUN; then run "az devops service-endpoint create (infra: $sc)"; ep_id="<dry-run-infra-ep>"
+    else ep_id="$(az devops service-endpoint create "${ADOP_ARGS[@]}" --service-endpoint-configuration "$cfg" --query id -o tsv)"; ok "created infra service connection ($ep_id)"; fi
+    rm -f "$cfg"
+  else ok "infra service connection exists ($ep_id)"; fi
+  authorize_pipeline_resource endpoint "$ep_id"
+
+  # Federated credential binding the infra app reg ↔ infra service connection.
+  if ! $DRY_RUN && [[ "$ep_id" != "<dry-run-infra-ep>" ]]; then
+    local ep_json issuer subject org_short app_obj fc
+    ep_json="$(az devops service-endpoint show "${ADOP_ARGS[@]}" --id "$ep_id" -o json)"
+    issuer="$(echo "$ep_json"  | jq -r '.authorization.parameters.workloadIdentityFederationIssuer // empty')"
+    subject="$(echo "$ep_json" | jq -r '.authorization.parameters.workloadIdentityFederationSubject // empty')"
+    org_short="$(basename "$ADO_ORG")"
+    subject="${subject:-sc://${org_short}/${ADO_PROJECT}/${sc}}"
+    if [[ -z "$issuer" ]]; then
+      local org_id; org_id="$(az devops invoke "${ADO_ARGS[@]}" --area core --resource connectionData --route-parameters "" --query 'instanceId' -o tsv 2>/dev/null || true)"
+      [[ -n "$org_id" ]] && issuer="https://vstoken.dev.azure.com/${org_id}"
+    fi
+    if [[ -n "$issuer" && -n "$subject" ]]; then
+      app_obj="$(az ad app show --id "$app_id" --query id -o tsv)"
+      fc="ado-${sc}"
+      az ad app federated-credential list --id "$app_obj" --query "[?name=='$fc'].name | [0]" -o tsv 2>/dev/null | grep -q . \
+        || az ad app federated-credential create --id "$app_obj" --parameters "{\"name\":\"${fc}\",\"issuer\":\"${issuer}\",\"subject\":\"${subject}\",\"audiences\":[\"api://AzureADTokenExchange\"]}" >/dev/null
+      ok "infra federated credential ensured ($fc)"
+    else warn "could not resolve infra WIF issuer/subject — finish $sc in the ADO UI (Verify)."; fi
+  fi
+
+  upsert_varset "$VG_SHARED" "infraServiceConnection=$sc"
+  authorize_pipeline_resource variablegroup "$LAST_VARGROUP_ID"
+}
+
 upsert_varset "$VG_SHARED" "tenantId=$TENANT_ID"
 authorize_pipeline_resource variablegroup "$LAST_VARGROUP_ID"
 upsert_varset "$VG_ENV" \
@@ -443,6 +514,11 @@ else
   else
     warn "Default agent pool queue not found — skipping queue authorization (add it in ADO)"
   fi
+fi
+
+# #6 — the two-layer model (rg mode) needs the sub-scoped infra connection.
+if [[ "$RBAC_SCOPE" == "rg" ]]; then
+  provision_infra_service_connection
 fi
 
 RG_MODE_NOTE=""
