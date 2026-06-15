@@ -87,10 +87,12 @@ identical.
 
 ## 3. The reference app
 
-`azure-ref-webapp-sql` is a working .NET web app whose `infra/main.bicep` is an
-orchestrator: it imports the platform modules and wires them into one
-private-by-default app — VNet, private endpoints, App Service, SQL (passwordless,
-Entra-only), and a self-hosted ADO agent — across four environments. It serves
+`azure-ref-webapp-sql` is a working .NET web app whose `infra/` templates import
+the platform modules and wire them into one private-by-default app — VNet,
+private endpoints, App Service, SQL (passwordless, Entra-only), and a self-hosted
+ADO agent — across four environments. It splits into an infra layer
+(`infra.bicep`, subscription-scoped) and an app layer (`app.bicep`, RG-scoped) to
+demonstrate least-privilege separation of duties. It serves
 two purposes: a single real consumer to run `what-if` against before merging a
 platform-module change, and a one-file example of how the pieces fit. For cheap,
 throwaway experiments with individual services, use `azure-playground` instead.

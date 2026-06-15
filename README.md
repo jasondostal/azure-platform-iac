@@ -51,8 +51,9 @@ azure-iac-patterns/              ← STANDALONE MODULE LIBRARY
 azure-project-starter/           ← COOKIECUTTER TEMPLATE (the factory)
 │   cookiecutter.json             → one command = new project repo
 │
-azure-ref-webapp-sql/            ← EXAMPLE: private-by-default monolith
-│   infra/main.bicep              → consumes platform modules · web app + SQL + 4 envs
+azure-ref-webapp-sql/            ← EXAMPLE: private-by-default monolith (two-layer)
+│   infra/infra.bicep             → infra layer: RG + VNet + agent (platform team, sub-scoped)
+│   infra/app.bicep               → app layer: App Service + SQL + PE (app team, RG-scoped)
 │
 azure-playground/                ← EXAMPLE: cheap, always-on sandbox
 │   infra/playground.bicep        → opt-in scale-to-zero services, one RG
