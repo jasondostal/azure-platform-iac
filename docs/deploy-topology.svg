@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1140" viewBox="0 0 1500 1140" font-family="'Segoe UI',system-ui,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0e1a"/><stop offset="1" stop-color="#0c1326"/>
+    </linearGradient>
+    <linearGradient id="hdr" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#60a5fa"/><stop offset="0.5" stop-color="#a78bfa"/><stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <marker id="aBlue" markerWidth="11" markerHeight="11" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill="#60a5fa"/></marker>
+    <marker id="aGreen" markerWidth="11" markerHeight="11" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill="#34d399"/></marker>
+    <marker id="aViolet" markerWidth="11" markerHeight="11" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill="#a78bfa"/></marker>
+    <marker id="aAmber" markerWidth="11" markerHeight="11" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill="#fbbf24"/></marker>
+    <marker id="aRed" markerWidth="11" markerHeight="11" refX="8" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill="#f87171"/></marker>
+    <style>
+      .title{fill:#f1f5fb;font-size:38px;font-weight:800}
+      .sub{fill:#9fb0c8;font-size:18px}
+      .zone{font-size:19px;font-weight:800;letter-spacing:1px}
+      .ct{font-size:18px;font-weight:700}
+      .cs{fill:#9fb0c8;font-size:13.5px}
+      .pill{fill:#cdd9ec;font-size:13.5px;font-weight:600}
+      .lab{font-size:13px;font-weight:600}
+      .note{fill:#8fa0bd;font-size:13px}
+      .num{fill:#0a0e1a;font-size:15px;font-weight:800}
+    </style>
+  </defs>
+  <rect width="1500" height="1140" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1500" height="6" fill="url(#hdr)"/>
+  <text x="50" y="62" class="title">Deploy-time topology — how it interplays</text>
+  <text x="52" y="92" class="sub">One pipeline run · build once · deployed into a private VNet by an in-VNet self-hosted agent · three auth layers · zero stored deploy secret</text>
+
+  <!-- ZONE A: Azure DevOps -->
+  <rect x="40" y="120" width="430" height="820" rx="16" fill="#0e1830" stroke="#27406b" stroke-width="1.5"/>
+  <text x="60" y="156" class="zone" fill="#60a5fa">AZURE DEVOPS</text>
+
+  <rect x="66" y="180" width="378" height="92" rx="11" fill="#142544" stroke="#60a5fa" stroke-width="1.8"/>
+  <text x="86" y="210" class="ct" fill="#cdd9ec">Repo</text>
+  <text x="86" y="234" class="cs">app code + azure-pipelines.yml</text>
+  <text x="86" y="254" class="cs">platform templates (imported repo)</text>
+
+  <rect x="66" y="294" width="378" height="92" rx="11" fill="#142544" stroke="#60a5fa" stroke-width="1.8"/>
+  <text x="86" y="324" class="ct" fill="#cdd9ec">Pipeline — build once, deploy many</text>
+  <text x="86" y="348" class="cs">Build on the pool → promote 1 artifact</text>
+  <text x="86" y="368" class="cs">gated by ADO Environment approvals</text>
+
+  <rect x="66" y="408" width="378" height="100" rx="11" fill="#142544" stroke="#60a5fa" stroke-width="1.8"/>
+  <text x="86" y="438" class="ct" fill="#60a5fa">Service connection (WIF)</text>
+  <text x="86" y="462" class="cs">literal name: sc-app-dev  ②</text>
+  <text x="86" y="482" class="cs">scheme = Workload Identity Fed.</text>
+  <text x="86" y="500" class="cs">no secret stored  ①</text>
+
+  <rect x="66" y="560" width="378" height="92" rx="11" fill="#241419" stroke="#f87171" stroke-width="1.8" stroke-dasharray="7 5"/>
+  <text x="86" y="590" class="ct" fill="#f87171">Microsoft-hosted agent</text>
+  <text x="86" y="614" class="cs">runs on Microsoft's network</text>
+  <text x="86" y="634" class="cs">OUTSIDE your tenant  ⑤</text>
+
+  <!-- ZONE B: Entra -->
+  <rect x="500" y="120" width="350" height="540" rx="16" fill="#1a1633" stroke="#473a73" stroke-width="1.5"/>
+  <text x="520" y="156" class="zone" fill="#a78bfa">ENTRA ID</text>
+
+  <rect x="524" y="184" width="302" height="92" rx="11" fill="#241b3d" stroke="#a78bfa" stroke-width="1.8"/>
+  <text x="544" y="214" class="ct" fill="#a78bfa">App registration</text>
+  <text x="544" y="238" class="cs">the deploy identity</text>
+  <text x="544" y="258" class="cs">Contributor + UAA on the sub</text>
+
+  <rect x="524" y="300" width="302" height="104" rx="11" fill="#241b3d" stroke="#a78bfa" stroke-width="1.8"/>
+  <text x="544" y="330" class="ct" fill="#a78bfa">Federated credential</text>
+  <text x="544" y="354" class="cs">subject = sc://org/proj/sc-app-dev</text>
+  <text x="544" y="374" class="cs">must match the SC exactly</text>
+  <text x="544" y="394" class="cs">→ trades OIDC token for access token</text>
+
+  <rect x="524" y="436" width="302" height="86" rx="11" fill="#13182c" stroke="#2f3a59" stroke-width="1.2"/>
+  <text x="544" y="464" class="lab" fill="#fbbf24">OIDC token exchange ①</text>
+  <text x="544" y="486" class="note">agent gets ADO OIDC token →</text>
+  <text x="544" y="504" class="note">Entra checks fed-cred → access token</text>
+
+  <!-- ZONE C: Your tenant / VNet -->
+  <rect x="884" y="120" width="576" height="820" rx="16" fill="#0c1a22" stroke="#1f5566" stroke-width="1.5"/>
+  <text x="904" y="156" class="zone" fill="#22d3ee">YOUR AZURE TENANT</text>
+
+  <!-- VNet boundary -->
+  <rect x="906" y="178" width="534" height="610" rx="14" fill="#0b222a" stroke="#22d3ee" stroke-width="2.5" stroke-dasharray="9 6"/>
+  <text x="926" y="206" class="ct" fill="#22d3ee">VNet — private (public endpoints OFF)</text>
+
+  <!-- self-hosted agent -->
+  <rect x="926" y="226" width="250" height="170" rx="11" fill="#10261f" stroke="#34d399" stroke-width="2"/>
+  <text x="946" y="256" class="ct" fill="#34d399">Self-hosted agent</text>
+  <text x="946" y="278" class="cs">on VNet-injected ACI</text>
+  <text x="946" y="306" class="pill">image ← ACR (AcrPull UAMI)</text>
+  <text x="946" y="330" class="pill" fill="#fbbf24">registered ← PAT (Key Vault) ③</text>
+  <text x="946" y="358" class="cs">the ONLY thing that can</text>
+  <text x="946" y="378" class="cs">reach private endpoints</text>
+
+  <!-- private DNS -->
+  <rect x="926" y="416" width="250" height="92" rx="11" fill="#13182c" stroke="#2f3a59" stroke-width="1.2"/>
+  <text x="946" y="444" class="lab" fill="#22d3ee">Private DNS ④</text>
+  <text x="946" y="466" class="note">privatelink.* zones linked to VNet</text>
+  <text x="946" y="486" class="note">names resolve → private IPs</text>
+
+  <!-- ACR -->
+  <rect x="926" y="528" width="250" height="74" rx="11" fill="#0e2a33" stroke="#22d3ee" stroke-width="1.5"/>
+  <text x="946" y="556" class="ct" fill="#22d3ee" font-size="16">ACR (platform-shared)</text>
+  <text x="946" y="578" class="cs">agent image registry</text>
+
+  <!-- private resources -->
+  <rect x="1196" y="226" width="230" height="376" rx="11" fill="#0e2030" stroke="#60a5fa" stroke-width="2"/>
+  <text x="1311" y="256" text-anchor="middle" class="ct" fill="#60a5fa">Private resources</text>
+  <text x="1311" y="278" text-anchor="middle" class="cs">private endpoint + DNS</text>
+  <rect x="1214" y="298" width="194" height="62" rx="8" fill="#142544"/><text x="1311" y="324" text-anchor="middle" class="pill">App Service</text><text x="1311" y="344" text-anchor="middle" class="cs">public access OFF</text>
+  <rect x="1214" y="372" width="194" height="62" rx="8" fill="#142544"/><text x="1311" y="398" text-anchor="middle" class="pill">Azure SQL</text><text x="1311" y="418" text-anchor="middle" class="cs">Entra-only (no pwd)</text>
+  <rect x="1214" y="446" width="194" height="62" rx="8" fill="#142544"/><text x="1311" y="472" text-anchor="middle" class="pill">Key Vault</text><text x="1311" y="492" text-anchor="middle" class="cs">RBAC</text>
+  <text x="1311" y="544" text-anchor="middle" class="note">app → SQL via</text>
+  <text x="1311" y="562" text-anchor="middle" class="note">managed identity</text>
+  <text x="1311" y="580" text-anchor="middle" class="note">(passwordless)</text>
+
+  <!-- ===== FLOWS ===== -->
+  <!-- 1. pipeline dispatches job to the in-VNet agent -->
+  <path d="M444,340 C660,340 700,300 922,300" fill="none" stroke="#60a5fa" stroke-width="2.5" marker-end="url(#aBlue)"/>
+  <text x="640" y="290" text-anchor="middle" class="lab" fill="#60a5fa">dispatch job → self-hosted pool</text>
+
+  <!-- 2. WIF: agent <-> Entra (token exchange), bound to the SC -->
+  <path d="M926,332 C700,360 700,420 828,440" fill="none" stroke="#a78bfa" stroke-width="2.2" marker-end="url(#aViolet)"/>
+  <text x="660" y="408" text-anchor="middle" class="lab" fill="#a78bfa">① WIF token request (OIDC)</text>
+  <path d="M524,470 C300,470 320,470 444,470" fill="none" stroke="#fbbf24" stroke-width="2" marker-end="url(#aAmber)" stroke-dasharray="5 4"/>
+  <text x="486" y="540" text-anchor="middle" class="note">SC binds the pipeline</text>
+  <text x="486" y="557" text-anchor="middle" class="note">to the app reg ②</text>
+
+  <!-- 3. agent deploys to private resources -->
+  <path d="M1176,330 L1192,330" fill="none" stroke="#34d399" stroke-width="3" marker-end="url(#aGreen)"/>
+  <text x="1186" y="312" text-anchor="middle" class="lab" fill="#34d399">deploy ✓</text>
+  <!-- agent pulls image from ACR -->
+  <path d="M1051,528 L1051,400" fill="none" stroke="#22d3ee" stroke-width="2" marker-end="url(#aGreen)"/>
+
+  <!-- 4. hosted agent blocked at the VNet boundary -->
+  <path d="M455,606 C700,720 760,720 900,640" fill="none" stroke="#f87171" stroke-width="2.5" stroke-dasharray="8 5"/>
+  <g stroke="#f87171" stroke-width="5"><path d="M884,612 L916,648"/><path d="M916,612 L884,648"/></g>
+  <text x="700" y="742" text-anchor="middle" class="lab" fill="#f87171">⑤ external → cannot reach private endpoints (times out)</text>
+
+  <!-- ===== KEY ===== -->
+  <rect x="40" y="812" width="430" height="128" rx="12" fill="#0f1730" stroke="#27406b" stroke-width="1.2"/>
+  <text x="60" y="842" class="ct" fill="#cdd9ec" font-size="16">The three auth layers</text>
+  <text x="60" y="868" class="note">① WIF — deploy identity, OIDC, no stored secret</text>
+  <text x="60" y="890" class="note">② SC auth — literal name, authorized at compile time</text>
+  <text x="60" y="912" class="note">③ PAT — agent registration, the one unavoidable secret</text>
+  <text x="60" y="932" class="note">④ Private DNS — required or in-VNet names don't resolve</text>
+
+  <rect x="884" y="812" width="576" height="128" rx="12" fill="#0f1730" stroke="#1f5566" stroke-width="1.2"/>
+  <text x="904" y="842" class="ct" fill="#cdd9ec" font-size="16">Why a self-hosted agent is mandatory</text>
+  <text x="904" y="868" class="note">Private endpoints seal the public door. Microsoft-hosted</text>
+  <text x="904" y="888" class="note">agents live outside your tenant and physically can't route in.</text>
+  <text x="904" y="908" class="note">A VNet-injected agent is the only path — so private-by-default</text>
+  <text x="904" y="928" class="note">forces self-hosted agents. Two halves of one decision.</text>
+
+  <text x="1450" y="1010" text-anchor="end" class="note" font-style="italic">azure-platform-iac · deploy-time topology</text>
+</svg>

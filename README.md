@@ -12,10 +12,11 @@ Shared Bicep platform modules — the single source of truth for Azure infrastru
 
 | Repo | Purpose |
 |------|---------|
-| **azure-platform-iac** (this repo) | Platform modules — generic, reusable Bicep templates |
-| [azure-iac-reference](../azure-iac-reference) | Reference app — .NET web app consuming platform modules |
-| [azure-iac-patterns](../azure-iac-patterns) | Patterns catalog — standalone service templates (Service Bus, Cosmos, etc.) |
-| [azure-project-starter](../azure-project-starter) | Cookiecutter template — one command generates a new project repo with pipeline, IaC, and .NET starter |
+| **azure-platform-iac** (this repo) | Platform modules + shared pipeline templates — the engine |
+| [azure-iac-patterns](../azure-iac-patterns) | Standalone module library — à-la-carte service templates (Service Bus, Cosmos, etc.) |
+| [azure-project-starter](../azure-project-starter) | Cookiecutter — one command generates a new wired-up service repo |
+| [azure-ref-webapp-sql](../azure-ref-webapp-sql) | Example: private-by-default .NET monolith + Azure SQL across 4 environments |
+| [azure-playground](../azure-playground) | Example: cheap, always-on sandbox for fast, near-free experiments |
 
 ## Architecture
 

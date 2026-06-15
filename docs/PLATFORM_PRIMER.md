@@ -15,7 +15,11 @@ change flows downhill to everything that depends on it:
 ```
 azure-platform-iac      ← the source of truth (modules, pipeline templates, bootstrap)
    │
-   ├── azure-iac-reference     ← a real app that CONSUMES the platform
+   ├── azure-iac-patterns      ← a standalone library of à-la-carte modules
+   │
+   ├── azure-ref-webapp-sql    ← example: a real private-by-default app that CONSUMES the platform
+   │
+   ├── azure-playground        ← example: a cheap sandbox for fast experiments
    │
    └── azure-project-starter   ← a cookiecutter template that GENERATES new app repos
             │
@@ -83,12 +87,13 @@ identical.
 
 ## 3. The reference app
 
-`azure-iac-reference` is a working .NET web app whose `infra/main.bicep` is an
-orchestrator: it imports a dozen platform modules and wires them into one app —
-VNet, private endpoints, App Service, SQL (passwordless, Entra-only), Key Vault,
-APIM with multi-auth, Foundry AI. It serves two purposes: a single real consumer
-to run `what-if` against before merging a platform-module change, and a one-file
-example of how the pieces fit.
+`azure-ref-webapp-sql` is a working .NET web app whose `infra/main.bicep` is an
+orchestrator: it imports the platform modules and wires them into one
+private-by-default app — VNet, private endpoints, App Service, SQL (passwordless,
+Entra-only), and a self-hosted ADO agent — across four environments. It serves
+two purposes: a single real consumer to run `what-if` against before merging a
+platform-module change, and a one-file example of how the pieces fit. For cheap,
+throwaway experiments with individual services, use `azure-playground` instead.
 
 ---
 
