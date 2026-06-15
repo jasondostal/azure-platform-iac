@@ -43,16 +43,19 @@ azure-platform-iac/              ← PLATFORM REPO (this one)
 │   ├── security-gates.yml       → gitleaks, trivy, semgrep, NuGet scan
 │   └── deploy-environment.yml   → approval-gated stage: deploy app (+ optional infra)
 │
-azure-iac-reference/             ← APP REPO (web app)
-│   infra/main.bicep              → consumes platform modules
-│
-azure-iac-patterns/              ← PATTERNS CATALOG
+azure-iac-patterns/              ← STANDALONE MODULE LIBRARY
 │   identity/main.bicep           → standalone multi-auth + APIM pattern
 │   foundry/main.bicep            → standalone Foundry AI agent stack
 │   networking/main.bicep         → standalone VNet + private DNS
 │
-azure-project-starter/           ← COOKIECUTTER TEMPLATE
+azure-project-starter/           ← COOKIECUTTER TEMPLATE (the factory)
 │   cookiecutter.json             → one command = new project repo
+│
+azure-ref-webapp-sql/            ← EXAMPLE: private-by-default monolith
+│   infra/main.bicep              → consumes platform modules · web app + SQL + 4 envs
+│
+azure-playground/                ← EXAMPLE: cheap, always-on sandbox
+│   infra/playground.bicep        → opt-in scale-to-zero services, one RG
 ```
 
 ## Module Catalog
